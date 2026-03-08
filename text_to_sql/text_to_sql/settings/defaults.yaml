@@ -1,0 +1,18 @@
+# Default Settings for text_to_sql RAG System
+# ==============================================
+#
+# This file defines defaults for all environments.
+# These values are overridden by profile files (dev.yaml, prod.yaml, etc.)
+# and environment variables (see load_settings() in config.py for precedence).
+#
+# Precedence (lowest to highest):
+#   1. settings/defaults.yaml (this file)
+#   2. settings/{ENV}.yaml (profile file, e.g., settings/dev.yaml)
+#   3. .env file (python-dotenv)
+#   4. OS environment variables (TEXT_TO_SQL_ENV, FILE_PATH, etc.)
+
+env: dev
+file_path: "dev.json"
+vector_db_path: "chromadb"
+databases_dir: "dbs/dev_databases"
+google_api_key: null

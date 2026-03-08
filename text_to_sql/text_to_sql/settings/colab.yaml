@@ -1,0 +1,16 @@
+# Google Colab Environment Settings
+# ===================================
+#
+# Use this with: TEXT_TO_SQL_ENV=colab
+# Or automatically detected when running in Colab (COLAB_GPU or COLAB_TPU_ADDR env vars present).
+#
+# Paths should point to mounted Google Drive locations.
+# API key is fetched from Colab secrets via google.colab.userdata.get()
+
+env: colab
+file_path: "/content/drive/MyDrive/GenAI/data/dev.json"
+vector_db_path: "/content/drive/MyDrive/GenAI/data/chromadb"
+databases_dir: "/content/drive/MyDrive/GenAI/data/dbs/dev_databases"
+
+# API key is fetched from Colab secrets UI in get_settings()
+# google_api_key: null

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "text-to-sql"
+version = "0.1.0"
+description = "Text-to-SQL RAG System - Convert natural language queries to SQL using RAG"
+requires-python = ">=3.10"
+
+dependencies = [
+    "langchain-google-genai>=0.0.1",
+    "langchain-core>=0.1.0",
+    "langchain-chroma>=0.1.0",
+    "langchain-text-splitters>=0.0.1",
+    "chromadb>=0.5.0",
+    "langgraph>=0.0.1",
+    "pydantic>=2.0.0",
+    "google-generativeai>=0.3.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages]
+find = {}

@@ -1,0 +1,13 @@
+# Development Environment Settings
+# ==================================
+#
+# Overrides settings/defaults.yaml for local development.
+# Use this with: TEXT_TO_SQL_ENV=dev (or by default when not in Colab)
+
+env: dev
+file_path: "dev.json"
+vector_db_path: "chromadb"
+databases_dir: "dbs/dev_databases"
+
+# Leave google_api_key empty; load from .env or TEXT_TO_SQL_ENV
+# google_api_key: null

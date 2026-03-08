@@ -1,0 +1,63 @@
+# Text-to-SQL RAG System - Project Dependencies
+# 
+# Production Dependencies (Core Application)
+# ==========================================
+
+# Google Gemini API integration
+langchain-google-genai>=0.0.1
+
+# LangChain core components (documents, messages, base classes)
+langchain-core>=0.1.0
+
+# Chroma vector database integration with LangChain
+langchain-chroma>=0.1.0
+
+# Text processing and splitting for document chunking
+langchain-text-splitters>=0.0.1
+
+# ChromaDB vector database
+chromadb>=0.5.0
+
+# LangGraph for workflow orchestration and state management
+langgraph>=0.0.1
+
+# Pydantic for data validation and settings management
+pydantic>=2.0.0
+
+# Google Cloud / AI libraries
+google-generativeai>=0.3.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# YAML config files
+PyYAML>=6.0
+
+# LangGraph for workflow orchestration and state management
+langgraph>=0.0.1
+
+# Pydantic for data validation and settings management
+pydantic>=2.0.0
+
+# Google Cloud / AI libraries
+google-generativeai>=0.3.0
+
+# ==========================================
+# Testing Dependencies (Development Only)
+# ==========================================
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-asyncio>=0.21.0
+
+# ==========================================
+# Optional Dependencies
+# ==========================================
+# For OpenTelemetry (if monitoring/tracing is enabled)
+# opentelemetry-api>=1.40.0
+# opentelemetry-sdk>=1.40.0
+# opentelemetry-exporter-otlp>=1.40.0
+
+# For additional document loaders
+# langchain-community>=0.0.1

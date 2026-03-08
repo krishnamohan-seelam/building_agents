@@ -1,0 +1,14 @@
+# Production Environment Settings
+# ==================================
+#
+# Use this with: TEXT_TO_SQL_ENV=prod
+# For production, API keys should ALWAYS come from environment variables or secrets manager,
+# never hardcoded or in .env files.
+
+env: prod
+file_path: "/data/prod/queries.json"
+vector_db_path: "/data/prod/chromadb"
+databases_dir: "/data/prod/dbs/databases"
+
+# REQUIRED: Set GOOGLE_API_KEY via environment variable or secrets backend in production
+# google_api_key: null
