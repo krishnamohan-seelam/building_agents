@@ -1,5 +1,9 @@
 # Text-to-SQL RAG System - Git Ignore Rules
 
+docs/
+DOCS/
+design_docs/
+
 # ==========================================
 # Environment Variables & Secrets
 # ==========================================
