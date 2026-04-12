@@ -25,13 +25,13 @@ def main():
     prompt  = ChatPromptTemplate.from_messages(
         [
             ("system", "You are a helpful assistant."),
-            ("user", "{question}"),
+            ("user", "{query}"),
         ]
     )
 
     llm_chain = prompt | llm
     
-    response = llm_chain.invoke({"input": "Tell me a fun fact about space."})
+    response = llm_chain.invoke({"query": "Tell me a fun fact about space."})
     print("\nAI Agent says:")
     print(response.content)
     

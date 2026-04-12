@@ -5,7 +5,10 @@ This repository contains various modules and exercises related to building Agent
 ## Project Structure
 - `langchain_agents/`: A library for LangChain agent development, featuring automated code review and generation.
 - `text_to_sql/`: A specialized RAG system for translating natural language to SQL queries.
+- `learning_langchain/`: Foundational LangChain scripts, experiments, and references.
 - `Notebooks/`: Experimental and tutorial notebooks.
+- `tests/`: Automated test suite for project modules.
+- `design_docs/`: Project design and phase completion tracking documents.
 
 ## Key Features
 - **Code Generation & Optimization**: Quickly bootstrap LangChain agents and automatically review them using the internal **Dev Agent**.
