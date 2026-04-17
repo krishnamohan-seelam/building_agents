@@ -49,5 +49,4 @@ agent = get_dev_agent()
 ```
 
 ## Documentation
-- [Architecture](DOCS/ARCHITECTURE.md)
 - [Text-to-SQL README](text_to_sql/README.md)

@@ -51,7 +51,7 @@ Set your environment by:
 
 ---
 
-## 3. Architecture Overview
+## 3. Directory Structure
 
 The system was refactored from a rigid DDD layout into a highly focused, modular application:
 
