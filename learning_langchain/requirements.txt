@@ -3,5 +3,6 @@ langchain-openai
 langchain-google-genai
 python-dotenv
 langgraph
-langchain_community
+langchain-community
 rich
+langchain-tavily

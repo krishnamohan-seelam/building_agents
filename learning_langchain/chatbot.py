@@ -1,13 +1,15 @@
 """
-Example: 2
+Example 3:
 
-This module provides a tutorial on building a conversational AI agent with memory 
-using LangChain and OpenAI models. It demonstrates how to integrate `RunnableWithMessageHistory`
-to manage session-based chat history, allowing the LLM to recall previous interactions within
-a given session ID. Additionally, it highlights using the `rich` library to present the 
-AI's responses in an aesthetically pleasing way in the terminal.
+This module demonstrates how to build a "smart" AI agent using LangChain that can 
+access external tools, such as the internet, to retrieve up-to-date information. 
+It uses the Tavily search API to allow the agent to look up current facts, 
+weather, or any other information available online, making it much more powerful 
+than a standard LLM that only knows information up to its training cutoff.
 """
+
 import os
+import sys  
 from load_env import configure_environment
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -15,7 +17,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage,BaseMessage
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearch
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -28,7 +30,11 @@ console = Console()
 
 AGENT_STORE = dict()
 
-def get_llm(apikey, model="gpt-4o", temperature=0):
+def create_session_config(user_id:str, session_id: str):
+
+    return {"configurable": {"session_id": f"{user_id}_{session_id}"}}
+
+def get_llm(apikey, model="gpt-4o", temperature=0,tools=None):
     """
     Initializes and returns a ChatOpenAI language model instance.
 
@@ -40,6 +46,9 @@ def get_llm(apikey, model="gpt-4o", temperature=0):
     Returns:
         ChatOpenAI: A configured LangChain ChatOpenAI LLM object.
     """
+    if tools:
+        llm = ChatOpenAI(model=model, temperature=temperature, api_key=apikey)
+        return llm.bind_tools(tools)
     return ChatOpenAI(model=model, temperature=temperature, api_key=apikey)
 
 class ChatMessageHistory(BaseChatMessageHistory):
@@ -129,24 +138,23 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
         AGENT_STORE[session_id] = ChatMessageHistory()
     return AGENT_STORE[session_id]
 
-def main():
-    """
-    Main entry point for running the agentic memory tutorial.
-    
-    This function configures the environment, instantiates the OpenAI LLM, creates a 
-    conversational prompt with a history placeholder, and builds a runnable chain 
-    that binds session history. It then runs several test interactions to demonstrate 
-    that the AI remembers context.
-    """
 
-    configure_environment()
+def main():
+
+    configure_environment(("OPENAI_API_KEY", "TAVILY_API_KEY"))
 
     openai_api_key = os.getenv("OPENAI_API_KEY")
+    tavily_api_key = os.getenv("TAVILY_API_KEY")
 
     if not openai_api_key:
         raise ValueError("OpenAI API key is not set")
+    if not tavily_api_key:
+        raise ValueError("Tavily API key is not set")
+    
+    tavily_search = TavilySearch(max_results=5)
+    tools =[tavily_search]
 
-    llm = get_llm(openai_api_key)
+    llm = get_llm(openai_api_key,temperature=0,tools=tools)
     prompt_with_history = ChatPromptTemplate.from_messages([
     ("system", "You are a helpful AI assistant. Always introduce yourself and remember our past conversations."),
     ("placeholder", "{chat_history}"), # This is where the memory will be inserted
@@ -163,19 +171,17 @@ def main():
         output_messages_key="output"
     )
     print("Agent with memory initialized")
-    config = {"configurable": {"session_id": "conversation_session"}}
+    config = create_session_config("user1", "conversation_session")
 
-    response = conversational_chain.invoke({"input": "Hi, my name is Krishna"}, config=config)
-    console.print(Panel(Markdown(response.content), title="AI Agent", border_style="cyan", box=ASCII))
+    while True:
+        user_input = input("\n you:")
+        if user_input.lower()  in ("exit","quit"):
+            break
 
-    response_1 = conversational_chain.invoke({"input": "What is my name?"}, config=config)
-    console.print(Panel(Markdown(response_1.content), title="AI Agent", border_style="cyan", box=ASCII))
-
-    response_2 = conversational_chain.invoke({"input": "Tell me fun fact about Python programming language?"}, config=config)
-    console.print(Panel(Markdown(response_2.content), title="AI Agent", border_style="cyan", box=ASCII))
-
-    response_3 = conversational_chain.invoke({"input": "Explain me the meaning of my name?"}, config=config)
-    console.print(Panel(Markdown(response_3.content), title="AI Agent", border_style="cyan", box=ASCII))
+        response = conversational_chain.invoke({"input": user_input}, config=config)
+        console.print(Panel(Markdown(response.content), title="AI Agent", border_style="cyan", box=ASCII))
+    
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
