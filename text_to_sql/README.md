@@ -134,13 +134,22 @@ print(result.get("sql_query"))
 print(result.get("final_answer"))
 ```
 
----
+## 6. Testing
 
-## 5. Troubleshooting
+The project includes a comprehensive test suite with 90%+ coverage, including unit tests and integration tests using mocks.
 
-- **`ModuleNotFoundError: No module named 'text_to_sql'`**
-  Ensure you are executing from the root directory of the project, or you have installed the package locally via `pip install -e .`.
-- **`ValueError: GOOGLE_API_KEY is required`**
-  Make sure your `.env` file exists in the root directory and contains `GOOGLE_API_KEY=your_key_here`.
-- **Unexpected SQLite Paths**
-  Run `python -c "from text_to_sql import get_settings; print(get_settings().DATABASES_DIR)"` to ensure your active profile calculates the correct directory base.
+### Running Tests
+```bash
+# Run all tests
+pytest
+
+# Run tests with coverage report
+pytest --cov=text_to_sql text_to_sql/tests/
+```
+
+The tests cover:
+- **Settings:** Profile loading, environment variable precedence, and path resolution.
+- **Database Schema Manager:** SQLite schema extraction and foreign key detection.
+- **Common Utilities:** Pydantic models and factory functions.
+- **Embedding Generation:** Data preparation and ingestion pipeline.
+- **Workflow:** LangGraph nodes and overall workflow orchestration (mocked LLM).

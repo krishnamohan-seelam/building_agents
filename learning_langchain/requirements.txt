@@ -6,3 +6,7 @@ langgraph
 langchain-community
 rich
 langchain-tavily
+langchain-core
+ddgs
+requests
+yfinance

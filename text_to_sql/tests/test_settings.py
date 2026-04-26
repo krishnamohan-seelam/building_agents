@@ -22,7 +22,16 @@ from text_to_sql.settings import (
     get_settings,
     _is_running_in_colab,
     _load_yaml_file,
+    _reset_settings_cache,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_cache():
+    """Reset the settings cache before each test to ensure isolation."""
+    _reset_settings_cache()
+    yield
+    _reset_settings_cache()
 
 
 class TestSettingsSchema:

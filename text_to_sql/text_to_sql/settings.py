@@ -76,6 +76,12 @@ class Settings(BaseModel):
 _SETTINGS_CACHE: Optional[Settings] = None
 
 
+def _reset_settings_cache() -> None:
+    """Reset the internal settings cache. Primarily used for testing."""
+    global _SETTINGS_CACHE
+    _SETTINGS_CACHE = None
+
+
 def _load_yaml_file(path: Path) -> Dict[str, Any]:
     """Load YAML file safely; return empty dict if not found or on error."""
     if not path.exists():
