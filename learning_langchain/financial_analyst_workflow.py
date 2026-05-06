@@ -1,31 +1,42 @@
 """
-Example 4:
+Example 5:
 
-This module demonstrates how to build a specialized ReAct agent using LangGraph and LangChain. 
-It creates a "Financial Analyst" persona that can autonomously fetch historical stock prices 
-using Yahoo Finance (yfinance) and search for recent market news using DuckDuckGo.
-The agent uses these tools to reason about stock performance and present insights to the user.
+Difference from financial_analyst.py (Example 4):
+While financial_analyst.py relies on a high-level `create_agent` wrapper to generate the agent, 
+this module explicitly constructs the workflow from scratch using LangGraph's `StateGraph`. 
+It manually defines the `AgentState`, the nodes (`AssistantNode` and `ToolNode`), and the 
+conditional edges. This approach exposes the underlying ReAct architecture and offers 
+greater flexibility and customization.
 """
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
+from langgraph.graph.message import add_messages
 from langchain_core.tools import tool
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
+from langchain_core.messages import SystemMessage
 from load_env import configure_environment
 
 import os
 import sys
 import yfinance as yf
-from typing import Literal
+from typing import Literal,TypedDict,Annotated
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.prompt import Prompt
 
-def get_llm(apikey, model="gpt-4o", temperature=0):
-    return ChatOpenAI(model=model, temperature=temperature, api_key=apikey)
+
+
+
+
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
+
 
 @tool
 def get_stock_price_results(ticker_symbol: str, period: Literal["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"] = "1mo"):
@@ -65,6 +76,51 @@ def get_duckduckgo_results(query: str, num_results: int = 5):
 def get_tools():
     return [get_duckduckgo_results, get_stock_price_results]
 
+def get_llm(apikey, model="gpt-4o", temperature=0):
+    return ChatOpenAI(model=model, temperature=temperature, api_key=apikey)
+
+
+def get_llm_with_tools(llm, tools):
+    """Bind tools to the LLM"""
+    
+    return llm.bind_tools(tools)
+
+
+class AssistantNode:
+    """
+    Chatbot node that processes messages and generates responses.
+    """
+    def __init__(self, llm_with_tools, system_prompt=None):
+        self.llm_with_tools = llm_with_tools
+        self.system_prompt = system_prompt
+
+    def __call__(self, state: AgentState) -> dict:
+        messages = state["messages"]
+        # Add system prompt if it's the first message
+        if self.system_prompt and len(messages) <= 1:
+            if not any(isinstance(m, SystemMessage) for m in messages):
+                messages = [SystemMessage(content=self.system_prompt)] + messages
+        
+        response = self.llm_with_tools.invoke(messages)
+        return {"messages": [response]}
+
+
+def build_agent_graph(llm, tools, system_prompt=None):
+    """Build the financial analyst agent graph"""
+
+    llm_with_tools = get_llm_with_tools(llm, tools)
+
+    builder = StateGraph(AgentState)
+    builder.add_node("assistant", AssistantNode(llm_with_tools, system_prompt))
+    builder.add_node("tools", ToolNode(tools))
+    
+    builder.add_conditional_edges("assistant", tools_condition)
+    builder.add_edge("tools", "assistant")
+    builder.set_entry_point("assistant")
+    
+    return builder.compile()
+
+
 def main():
     configure_environment()
     
@@ -73,13 +129,13 @@ def main():
         sys.stdout.reconfigure(encoding='utf-8')
 
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    
     if not openai_api_key:
         raise ValueError("OpenAI API key is not set")
 
     llm = get_llm(openai_api_key)
     tools = get_tools()
-    
+
+
     system_prompt = """You are an expert financial analyst assistant.
 You have access to financial data tools and a websearch tool.
 You should always think step-by-step and use the tools effectively to answer complex financial questions.
@@ -89,8 +145,8 @@ TRANSPARENCY RULE: You MUST explicitly cite your sources in your final response.
 RESTRICTION: You are strictly restricted to answering questions about stock prices and the reasons for their performance. If a user asks about anything else, politely decline and remind them of your restriction.
 Always use the tools to get the most up-to-date information."""
 
-    # Execute the specific agent logic
-    agent = create_agent(model=llm, tools=tools, system_prompt=system_prompt)
+    # Build the agent graph with tools and system prompt
+    agent = build_agent_graph(llm, tools, system_prompt)
     
     console = Console()
 

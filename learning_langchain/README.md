@@ -8,6 +8,8 @@ This directory contains introductory examples and exercises for building AI agen
 * [Example 2: Agent with Memory (`agent_with_memory.py`)](./agent_with_memory.py) - Demonstrates how to add conversational memory to an agent so it remembers previous turns.
 * [Example 3: Chatbot with Tools (`chatbot.py`)](./chatbot.py) - A "smart" agent that uses the Tavily search API to retrieve up-to-date information from the web.
 * [Example 4: Financial Analyst (`financial_analyst.py`)](./financial_analyst.py) - A specialized ReAct agent using LangGraph that fetches stock data via Yahoo Finance (`yfinance`) and reasons about market news using DuckDuckGo search.
+![Financial_Analyst](./images/Financial_Analyst.png)
+* [Example 5: Financial Analyst Workflow (`financial_analyst_workflow.py`)](./financial_analyst_workflow.py) - A refactored version of the financial analyst agent that uses a clean LangGraph state management, system prompts, and encapsulated node logic.
 
 ## Utilities
 
