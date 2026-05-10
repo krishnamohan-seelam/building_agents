@@ -10,3 +10,4 @@ langchain-core
 ddgs
 requests
 yfinance
+langgraph-checkpoint-sqlite==3.0.3
