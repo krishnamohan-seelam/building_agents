@@ -14,6 +14,8 @@ This repository contains various modules and exercises related to building Agent
 - **Code Generation & Optimization**: Quickly bootstrap LangChain agents and automatically review them using the internal **Dev Agent**.
 - **Agent-Ready Tools**: All skills are exposed as standard LangChain `@tool` objects, ready to be plugged into any agentic workflow.
 - **Environment Management**: Robust loading and validation of environment variables.
+- **Planner-Executor Workflow**: Stateful LangGraph-based sequential planning agent supporting dynamic LLM model selection (Groq, Google Gemini, OpenAI), tool execution protection (5-turn execution limits), and synthesized answers.
+- **Safe Calculation & Weather Retrieval**: Calculator tool containing CPU-exhaustion checks (blocking `**`) and weather tool with parameter URL-encoding.
 
 ## Getting Started
 
@@ -28,6 +30,18 @@ This repository contains various modules and exercises related to building Agent
 
 # Install dependencies
 pip install -r requirements.txt
+```
+
+### Usage (Planner-Executor Agent)
+```python
+from learning_langchain.planner_executor_agent import run_agent
+
+# Run the agent to solve a complex research goal
+final_answer = run_agent(
+    "Compare Python and Rust: what are each language's main strengths "
+    "and which should a backend developer learn in 2025?"
+)
+print(final_answer)
 ```
 
 ### Usage (LangChain Agents Skills)
@@ -49,4 +63,5 @@ agent = get_dev_agent()
 ```
 
 ## Documentation
+- [Architecture Details](DOCS/ARCHITECTURE.md)
 - [Text-to-SQL README](text_to_sql/README.md)

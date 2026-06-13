@@ -1,0 +1,12 @@
+langgraph
+langchain
+langchain-groq
+langchain-community
+duckduckgo-search
+wikipedia
+requests
+python-dotenv
+pydantic
+rich
+langchain-google-genai
+langchain-openai
