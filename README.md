@@ -15,6 +15,7 @@ This repository contains various modules and exercises related to building Agent
 - **Agent-Ready Tools**: All skills are exposed as standard LangChain `@tool` objects, ready to be plugged into any agentic workflow.
 - **Environment Management**: Robust loading and validation of environment variables.
 - **Planner-Executor Workflow**: Stateful LangGraph-based sequential planning agent supporting dynamic LLM model selection (Groq, Google Gemini, OpenAI), tool execution protection (5-turn execution limits), and synthesized answers.
+- **Query Decomposer (Self-Ask with Search)**: Iterative multi-hop research agent that dynamically breaks complex questions into sub-questions, resolves each via tools, accumulates a scratchpad, and synthesizes a grounded final answer — no upfront plan required.
 - **Safe Calculation & Weather Retrieval**: Calculator tool containing CPU-exhaustion checks (blocking `**`) and weather tool with parameter URL-encoding.
 
 ## Getting Started
@@ -42,6 +43,17 @@ final_answer = run_agent(
     "and which should a backend developer learn in 2025?"
 )
 print(final_answer)
+```
+
+### Usage (Query Decomposer Agent)
+```python
+from learning_langchain.query_decomposer.query_decomposer_agent import run_agent
+
+# Multi-hop research: agent breaks the question into sub-questions automatically
+answer = run_agent(
+    "Who invented Python, and what university did they study at?"
+)
+print(answer)
 ```
 
 ### Usage (LangChain Agents Skills)

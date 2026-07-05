@@ -1,0 +1,8 @@
+langchain
+langchain-community
+langchain-core
+python-dotenv
+docx2txt
+wikipedia
+pypdf
+langchain-google-genai
