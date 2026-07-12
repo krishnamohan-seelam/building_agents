@@ -100,7 +100,7 @@ TAVILY_API_KEY=your_tavily_key_here   # optional, for richer search
 ### 5. Run the agent
 
 ```bash
-python query_decomposer_agent.py
+python -m query_decomposer.agent
 ```
 
 ---
@@ -150,12 +150,15 @@ run_agent(
 
 ```
 query_decomposer/
-├── query_decomposer_agent.py   # Main agent
+├── agent.py                    # Main agent with LangGraph self-ask flow
+├── prompts.py                  # System & User prompts
+├── pyproject.toml              # Packaging setup
 ├── requirements.txt            # Python dependencies
+|__tests/                      # Test files
 ├── .env                        # API keys (not committed to git)
-├── utils/
-│   └── tools.py                # Underlying WebSearch & WikiSearch implementations
-└── README.md                   # This file
+└── utils/
+    ├── tools.py                # Underlying WebSearch & WikiSearch implementations
+    └── text.py                 # Text parsing and formatting utilities
 ```
 
 ---

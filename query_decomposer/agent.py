@@ -56,9 +56,9 @@ from langchain_core.tools import tool
 from langchain_groq import ChatGroq
 from langgraph.graph import END, StateGraph
 
-from .utils.tools import web_search, wikipedia_lookup, calculator, pick_tool
-from .utils.text import _coerce_text, format_scratchpad, WIKI_KEYWORDS
-from .prompts import DECOMPOSER_SYSTEM, DECOMPOSER_HUMAN_TEMPLATE, SYNTHESIZER_PROMPT
+from query_decomposer.utils.tools import web_search, wikipedia_lookup, calculator, pick_tool
+from query_decomposer.utils.text import _coerce_text, format_scratchpad, WIKI_KEYWORDS
+from query_decomposer.prompts import DECOMPOSER_SYSTEM, DECOMPOSER_HUMAN_TEMPLATE, SYNTHESIZER_PROMPT
 load_dotenv()
 console = Console()
 

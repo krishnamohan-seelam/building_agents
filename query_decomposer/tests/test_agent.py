@@ -1,10 +1,9 @@
 import json
 from unittest.mock import MagicMock, patch
-from learning_langchain.query_decomposer.query_decomposer_agent import (
-    _coerce_text,
+from query_decomposer.utils.text import _coerce_text
+from query_decomposer.utils.tools import web_search, wikipedia_lookup
+from query_decomposer.agent import (
     router,
-    web_search,
-    wikipedia_lookup,
     decomposer_node,
     research_node,
     synthesizer_node,
@@ -22,7 +21,7 @@ def test_router_falls_back_to_synthesize_for_unrecognized_output() -> None:
     assert router(state) == "synthesize"
 
 
-@patch("learning_langchain.query_decomposer.utils.tools.wikipedia.summary")
+@patch("query_decomposer.utils.tools.wikipedia.summary")
 def test_wikipedia_lookup(mock_summary) -> None:
     mock_summary.return_value = "Python is a programming language."
     result = wikipedia_lookup.invoke({"topic": "Python"})
@@ -30,7 +29,7 @@ def test_wikipedia_lookup(mock_summary) -> None:
     mock_summary.assert_called_once_with("Python", sentences=5, auto_suggest=True)
 
 
-@patch("learning_langchain.query_decomposer.utils.tools.DuckDuckGoSearchRun.run")
+@patch("query_decomposer.utils.tools.DuckDuckGoSearchRun.run")
 def test_web_search(mock_run) -> None:
     mock_run.return_value = "Search result details"
     result = web_search.invoke({"query": "current news"})
@@ -49,7 +48,7 @@ def test_log_event_formats_json_correctly() -> None:
         assert "timestamp" in log_json
 
 
-@patch("learning_langchain.query_decomposer.query_decomposer_agent.get_llm")
+@patch("query_decomposer.agent.get_llm")
 def test_decomposer_node_logging(mock_get_llm) -> None:
     mock_llm = MagicMock()
     mock_response = MagicMock()
@@ -81,7 +80,7 @@ def test_decomposer_node_logging(mock_get_llm) -> None:
         assert "node_end" in log_types
 
 
-@patch("learning_langchain.query_decomposer.query_decomposer_agent.TOOLS")
+@patch("query_decomposer.agent.TOOLS")
 def test_research_node_logging(mock_tools) -> None:
     mock_tool = MagicMock()
     mock_tool.invoke.return_value = "Sunny, 25C"
@@ -110,7 +109,7 @@ def test_research_node_logging(mock_tools) -> None:
         assert "node_end" in log_types
 
 
-@patch("learning_langchain.query_decomposer.query_decomposer_agent.get_llm")
+@patch("query_decomposer.agent.get_llm")
 def test_synthesizer_node_logging_inline_answer(mock_get_llm) -> None:
     state = {
         "question": "What is the capital of France?",

@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "query-decomposer"
+version = "0.1.0"
+description = "Query Decomposer Agent"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+package-dir = {"query_decomposer" = "."}
+packages = ["query_decomposer", "query_decomposer.utils"]
