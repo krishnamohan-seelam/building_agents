@@ -74,6 +74,17 @@ agent = get_dev_agent()
 # This meta-agent can use its tools to design and review other agents!
 ```
 
+## Testing
+Run the automated test suite to verify project logic:
+```bash
+# Run langchain_agents tests
+.venv\Scripts\python -m pytest tests/langchain_agents
+
+# Run learning_langchain tests (including Financial Analyst Workflow tests)
+$env:PYTHONPATH=".;learning_langchain"
+.venv\Scripts\python -m pytest tests/learning_langchain
+```
+
 ## Documentation
 - [Architecture Details](DOCS/ARCHITECTURE.md)
 - [Text-to-SQL README](text_to_sql/README.md)

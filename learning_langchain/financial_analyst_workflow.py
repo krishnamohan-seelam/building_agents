@@ -18,7 +18,9 @@ python financial_analyst_workflow.py --thread-id session_1
 
 """
 
-from langchain.agents import create_agent
+import logging
+
+logger = logging.getLogger(__name__)
 from langchain_openai import ChatOpenAI
 from langgraph.graph.message import add_messages
 from langchain_core.tools import tool
@@ -81,7 +83,7 @@ def get_duckduckgo_results(query: str, num_results: int = 5):
         results = search_tool.invoke(query)
         return results
     except Exception as e:
-        print(f"Error fetching results: {e}")
+        logger.error(f"Error fetching results: {e}")
         return "Failed to fetch results."
 
 def get_tools():

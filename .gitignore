@@ -122,3 +122,6 @@ dist-ssr
 *.sln
 *.sw?
 
+
+DOCS/
+.agents
