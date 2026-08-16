@@ -11,3 +11,4 @@ requests
 python-dotenv
 pydantic
 rich
+prompt-helper

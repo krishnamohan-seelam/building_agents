@@ -58,8 +58,15 @@ from langgraph.graph import END, StateGraph
 
 from query_decomposer.utils.tools import web_search, wikipedia_lookup, calculator, pick_tool
 from query_decomposer.utils.text import _coerce_text, format_scratchpad, WIKI_KEYWORDS
-from query_decomposer.prompts import DECOMPOSER_SYSTEM, DECOMPOSER_HUMAN_TEMPLATE, SYNTHESIZER_PROMPT
+from query_decomposer.prompts import (
+    DECOMPOSER_SYSTEM,
+    DECOMPOSER_HUMAN_TEMPLATE,
+    SYNTHESIZER_PROMPT,
+    build_decomposer_messages,
+    build_synthesizer_messages,
+)
 load_dotenv()
+
 console = Console()
 
 # ──────────────────────────────────────────────
@@ -217,15 +224,14 @@ def decomposer_node(state: AgentState) -> dict:
 
     llm_start_time = time.perf_counter()
     try:
-        response = llm.invoke([
-            SystemMessage(content=DECOMPOSER_SYSTEM),
-            HumanMessage(content=DECOMPOSER_HUMAN_TEMPLATE.format(
-                question=state["question"],
-                scratchpad=scratchpad_text,
-            ))
-        ])
+        messages = build_decomposer_messages(
+            question=state["question"],
+            scratchpad=scratchpad_text,
+        )
+        response = llm.invoke(messages)
         llm_latency = time.perf_counter() - llm_start_time
         raw = _coerce_text(response.content).strip()
+
 
         token_usage = getattr(response, "usage_metadata", None)
         if not token_usage:
@@ -421,14 +427,14 @@ def synthesizer_node(state: AgentState) -> dict:
 
     llm_start_time = time.perf_counter()
     try:
-        response = llm.invoke([
-            HumanMessage(content=SYNTHESIZER_PROMPT.format(
-                question=state["question"],
-                scratchpad=scratchpad_text,
-            ))
-        ])
+        messages = build_synthesizer_messages(
+            question=state["question"],
+            scratchpad=scratchpad_text,
+        )
+        response = llm.invoke(messages)
         llm_latency = time.perf_counter() - llm_start_time
         raw_answer = _coerce_text(response.content).strip()
+
 
         token_usage = getattr(response, "usage_metadata", None)
         if not token_usage:

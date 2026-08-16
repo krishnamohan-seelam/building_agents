@@ -1,3 +1,4 @@
+from prompt_helper import PromptBuilder
 
 DECOMPOSER_SYSTEM = """You are an expert research agent that answers complex questions
 by breaking them into focused sub-questions and looking them up one at a time.
@@ -49,3 +50,22 @@ Write a comprehensive answer that:
 - Is well-organized (use sections/bullets if appropriate)
 - Is accurate and does NOT invent facts
 """
+
+
+def build_decomposer_messages(question: str, scratchpad: str):
+    """Build messages list for the decomposer node using prompt_helper PromptBuilder."""
+    return (
+        PromptBuilder("decomposer")
+        .system(DECOMPOSER_SYSTEM)
+        .human(DECOMPOSER_HUMAN_TEMPLATE)
+        .build(question=question, scratchpad=scratchpad)
+    )
+
+
+def build_synthesizer_messages(question: str, scratchpad: str):
+    """Build messages list for the synthesizer node using prompt_helper PromptBuilder."""
+    return (
+        PromptBuilder("synthesizer")
+        .human(SYNTHESIZER_PROMPT)
+        .build(question=question, scratchpad=scratchpad)
+    )

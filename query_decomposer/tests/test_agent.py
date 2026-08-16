@@ -131,3 +131,25 @@ def test_synthesizer_node_logging_inline_answer(mock_get_llm) -> None:
         assert "node_end" in log_types
         assert "llm_start" not in log_types
 
+
+def test_build_decomposer_messages() -> None:
+    from query_decomposer.prompts import build_decomposer_messages
+    from langchain_core.messages import SystemMessage, HumanMessage
+
+    msgs = build_decomposer_messages(question="What is X?", scratchpad="None")
+    assert len(msgs) == 2
+    assert isinstance(msgs[0], SystemMessage)
+    assert isinstance(msgs[1], HumanMessage)
+    assert "Original question: What is X?" in msgs[1].content
+
+
+def test_build_synthesizer_messages() -> None:
+    from query_decomposer.prompts import build_synthesizer_messages
+    from langchain_core.messages import HumanMessage
+
+    msgs = build_synthesizer_messages(question="What is X?", scratchpad="Q: What is X?\nA: X is 42")
+    assert len(msgs) == 1
+    assert isinstance(msgs[0], HumanMessage)
+    assert "Original question: What is X?" in msgs[0].content
+
+
