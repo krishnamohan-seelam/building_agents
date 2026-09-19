@@ -20,12 +20,12 @@ import json
 import operator
 import os
 import re
-from typing import Annotated, List, TypedDict
+from typing import Annotated, Any, List, TypedDict
 
 import requests
 import wikipedia
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -35,7 +35,24 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
 from langgraph.graph import END, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.prebuilt import ToolNode
+
+try:
+    from .memory import (
+        DEFAULT_DATABASE_PATH,
+        DEFAULT_THREAD_ID,
+        format_conversation_history,
+        latest_human_message,
+    )
+except ImportError:
+    from memory import (
+        DEFAULT_DATABASE_PATH,
+        DEFAULT_THREAD_ID,
+        format_conversation_history,
+        latest_human_message,
+    )
 
 load_dotenv()
 console = Console()
@@ -46,9 +63,10 @@ console = Console()
 
 class AgentState(TypedDict):
     goal: str                               # The original user goal
+    messages: Annotated[list, add_messages] # Persisted conversation messages
     plan: List[str]                         # Ordered list of steps from the Planner
     current_step_index: int                 # Which step we're currently executing
-    results: Annotated[List[str], operator.add]  # Accumulated results (append-only)
+    results: List[str]                       # Research results for the current turn
     final_answer: str                       # Set when done
 
 
@@ -164,7 +182,7 @@ TOOL_NODE = ToolNode(TOOLS)
 # 3. LLM (Groq free tier — very fast)
 # ──────────────────────────────────────────────
 
-def get_llm(bind_tools: bool = False):
+def get_llm(bind_tools: bool = False) -> Any:
     groq_api_key = os.getenv("GROQ_API_KEY")
     google_api_key = os.getenv("GOOGLE_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -173,7 +191,7 @@ def get_llm(bind_tools: bool = False):
         llm = ChatGroq(
             model="llama-3.1-8b-instant",    # free & fast; swap to llama-3.3-70b for more power
             temperature=0,
-            api_key=groq_api_key,
+            api_key=SecretStr(groq_api_key),
         )
     elif google_api_key:
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -187,7 +205,7 @@ def get_llm(bind_tools: bool = False):
         llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
-            api_key=openai_api_key,
+            api_key=SecretStr(openai_api_key),
         )
     else:
         raise ValueError(
@@ -217,13 +235,18 @@ Each step should be specific enough for another agent to execute using these too
 
 
 def planner_node(state: AgentState) -> dict:
-    console.print(f"\n[bold magenta][PLANNER][/bold magenta] Creating plan for goal: {state['goal']}")
+    messages = state.get("messages", [])
+    goal = latest_human_message(messages) or state.get("goal", "")
+    history = format_conversation_history(messages)
+    console.print(f"\n[bold magenta][PLANNER][/bold magenta] Creating plan for goal: {goal}")
     llm = get_llm().with_structured_output(Plan)
     
     try:
         response = llm.invoke([
             PLANNER_PROMPT,
-            HumanMessage(content=f"Goal: {state['goal']}")
+            HumanMessage(content=(
+                f"Previous conversation:\n{history}\n\nCurrent goal: {goal}"
+            ))
         ])
         plan = response.steps
     except Exception as e:
@@ -232,13 +255,14 @@ def planner_node(state: AgentState) -> dict:
 
     # Fail-safe: if the plan is empty, fall back to executing the goal directly
     if not plan:
-        plan = [f"Address the user goal directly: {state['goal']}"]
+        plan = [f"Address the user goal directly: {goal}"]
 
     console.print(f"[bold magenta][PLANNER][/bold magenta] Generated {len(plan)} steps:")
     for i, step in enumerate(plan, 1):
         console.print(f"  {i}. {step}")
 
     return {
+        "goal": goal,
         "plan": plan,
         "current_step_index": 0,
         "results": [],
@@ -301,7 +325,13 @@ def executor_node(state: AgentState) -> dict:
     else:
         console.print(f"[bold yellow][Warning][/bold yellow] Step execution reached max iterations ({max_iterations}). Proceeding to results.")
 
-    result_text = response.content.strip() or f"Completed: {step}"
+    content = response.content
+    if isinstance(content, list):
+        content = " ".join(
+            item.get("text", "") if isinstance(item, dict) else str(item)
+            for item in content
+        )
+    result_text = content.strip() if content else f"Completed: {step}"
     console.print(f"[bold blue][EXECUTOR][/bold blue] Result: {result_text[:120]}...")
 
     return {
@@ -335,11 +365,21 @@ def synthesizer_node(state: AgentState) -> dict:
         HumanMessage(content=SYNTHESIZER_PROMPT.format(
             goal=state["goal"],
             results=results_text
+        )),
+        HumanMessage(content=(
+            "Use this prior conversation for continuity when relevant:\n"
+            f"{format_conversation_history(state.get('messages', []))}"
         ))
     ])
-    answer = response.content.strip()
+    content = response.content
+    if isinstance(content, list):
+        content = " ".join(
+            item.get("text", "") if isinstance(item, dict) else str(item)
+            for item in content
+        )
+    answer = content.strip() if content else ""
     console.print("[bold green][SYNTHESIZER][/bold green] Done.")
-    return {"final_answer": answer}
+    return {"final_answer": answer, "messages": [AIMessage(content=answer)]}
 
 
 # ──────────────────────────────────────────────
@@ -362,7 +402,7 @@ def supervisor_decision(state: AgentState) -> str:
 # 8. BUILD THE LANGGRAPH
 # ──────────────────────────────────────────────
 
-def build_graph() -> StateGraph:
+def build_graph(checkpointer=None) -> Any:
     graph = StateGraph(AgentState)
 
     # Add nodes
@@ -389,25 +429,25 @@ def build_graph() -> StateGraph:
     # Synthesizer ends the graph
     graph.add_edge("synthesizer", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 # ──────────────────────────────────────────────
 # 9. MAIN — run some example goals
 # ──────────────────────────────────────────────
 
-def run_agent(goal: str) -> str:
-    app = build_graph()
+def run_agent(
+    goal: str,
+    app: Any = None,
+    thread_id: str = DEFAULT_THREAD_ID,
+) -> str:
+    if app is None:
+        app = build_graph()
     console.print(Panel(f"[bold]GOAL:[/bold] {goal}", title="[bold yellow]Agent Started[/bold yellow]", expand=False))
 
     final_state = app.invoke(
-        {
-            "goal":               goal,
-            "plan":               [],
-            "current_step_index": 0,
-            "results":            [],
-            "final_answer":       "",
-        }
+        {"messages": [HumanMessage(content=goal)]},
+        config={"configurable": {"thread_id": thread_id}},
     )
     console.print()
     console.print(Panel(Markdown(final_state["final_answer"]), title="[bold green]FINAL ANSWER[/bold green]", expand=False))
@@ -415,16 +455,10 @@ def run_agent(goal: str) -> str:
 
 
 if __name__ == "__main__":
-    # Example 1: research + weather combo
-    run_agent(
-        "I'm planning a trip to Varanasi, India. "
-        "Tell me about the city's history, top attractions, and current weather."
-    )
-
-    print("\n\n")
-
-    # Example 2: pure research
-    # run_agent(
-    #     "Compare Python and Rust: what are each language's main strengths "
-    #     "and which should a backend developer learn in 2025?"
-    # )
+    with SqliteSaver.from_conn_string(str(DEFAULT_DATABASE_PATH)) as checkpointer:
+        app = build_graph(checkpointer=checkpointer)
+        run_agent(
+            "I'm planning a trip to Varanasi, India. "
+            "Tell me about the city's history, top attractions, and current weather.",
+            app=app,
+        )

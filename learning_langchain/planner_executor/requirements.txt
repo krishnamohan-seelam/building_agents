@@ -6,6 +6,7 @@ duckduckgo-search
 wikipedia
 requests
 python-dotenv
+langgraph-checkpoint-sqlite==3.0.3
 pydantic
 rich
 langchain-google-genai

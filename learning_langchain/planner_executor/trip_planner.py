@@ -16,7 +16,7 @@ import operator
 import os
 import re
 import sys
-from typing import Annotated, List, TypedDict
+from typing import Annotated, Any, List, TypedDict
 
 import warnings
 
@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 
 # Suppress the GuessedAtParserWarning from BeautifulSoup used within the wikipedia library
 warnings.filterwarnings("ignore", category=UserWarning, module='wikipedia')
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -36,7 +36,24 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
 from langgraph.graph import END, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.prebuilt import ToolNode
+
+try:
+    from .memory import (
+        DEFAULT_DATABASE_PATH,
+        DEFAULT_THREAD_ID,
+        format_conversation_history,
+        latest_human_message,
+    )
+except ImportError:
+    from memory import (
+        DEFAULT_DATABASE_PATH,
+        DEFAULT_THREAD_ID,
+        format_conversation_history,
+        latest_human_message,
+    )
 
 load_dotenv()
 console = Console()
@@ -47,9 +64,10 @@ console = Console()
 
 class AgentState(TypedDict):
     goal: str                               # The original user goal
+    messages: Annotated[list, add_messages] # Persisted conversation messages
     plan: List[str]                         # Ordered list of steps from the Planner
     current_step_index: int                 # Which step we're currently executing
-    results: Annotated[List[str], operator.add]  # Accumulated results (append-only)
+    results: List[str]                       # Research results for the current turn
     final_answer: str                       # Set when done
 
 
@@ -131,7 +149,7 @@ TOOL_NODE = ToolNode(TOOLS)
 # 3. LLM Setup
 # ──────────────────────────────────────────────
 
-def get_llm(bind_tools: bool = False):
+def get_llm(bind_tools: bool = False) -> Any:
     groq_api_key = os.getenv("GROQ_API_KEY")
     google_api_key = os.getenv("GOOGLE_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -140,7 +158,7 @@ def get_llm(bind_tools: bool = False):
         llm = ChatGroq(
             model="llama-3.1-8b-instant",
             temperature=0.2, # slightly more creative for a trip advisor
-            api_key=groq_api_key,
+            api_key=SecretStr(groq_api_key),
         )
     elif google_api_key:
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -154,7 +172,7 @@ def get_llm(bind_tools: bool = False):
         llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.2,
-            api_key=openai_api_key,
+            api_key=SecretStr(openai_api_key),
         )
     else:
         raise ValueError(
@@ -187,13 +205,18 @@ RESTRICTION: You are strictly restricted to answering questions about trip plann
 
 
 def planner_node(state: AgentState) -> dict:
-    console.print(f"\n[bold magenta][TRAVEL PLANNER][/bold magenta] Analyzing request: {state['goal']}")
+    messages = state.get("messages", [])
+    goal = latest_human_message(messages) or state.get("goal", "")
+    history = format_conversation_history(messages)
+    console.print(f"\n[bold magenta][TRAVEL PLANNER][/bold magenta] Analyzing request: {goal}")
     llm = get_llm().with_structured_output(Plan)
     
     try:
         response = llm.invoke([
             PLANNER_PROMPT,
-            HumanMessage(content=f"Request: {state['goal']}")
+            HumanMessage(content=(
+                f"Previous conversation:\n{history}\n\nCurrent request: {goal}"
+            ))
         ])
         plan = response.steps
     except Exception as e:
@@ -201,13 +224,14 @@ def planner_node(state: AgentState) -> dict:
         plan = []
 
     if not plan:
-        plan = [f"Address the user travel request directly: {state['goal']}"]
+        plan = [f"Address the user travel request directly: {goal}"]
 
     console.print(f"[bold magenta][TRAVEL PLANNER][/bold magenta] Formulated {len(plan)} research steps:")
     for i, step in enumerate(plan, 1):
         console.print(f"  {i}. {step}")
 
     return {
+        "goal": goal,
         "plan": plan,
         "current_step_index": 0,
         "results": [],
@@ -314,7 +338,11 @@ def synthesizer_node(state: AgentState) -> dict:
     response = llm.invoke([
         HumanMessage(content=SYNTHESIZER_PROMPT.format(
             goal=state["goal"],
-            results=results_text
+            results=results_text,
+        )),
+        HumanMessage(content=(
+            "Use this prior conversation for continuity when relevant:\n"
+            f"{format_conversation_history(state.get('messages', []))}"
         ))
     ])
     content = response.content
@@ -325,7 +353,7 @@ def synthesizer_node(state: AgentState) -> dict:
         )
     answer = content.strip() if content else ""
     console.print("[bold green][TRIP ADVISOR][/bold green] Done.")
-    return {"final_answer": answer}
+    return {"final_answer": answer, "messages": [AIMessage(content=answer)]}
 
 
 # ──────────────────────────────────────────────
@@ -344,7 +372,7 @@ def supervisor_decision(state: AgentState) -> str:
 # 8. BUILD THE LANGGRAPH
 # ──────────────────────────────────────────────
 
-def build_graph() -> StateGraph:
+def build_graph(checkpointer=None) -> Any:
     graph = StateGraph(AgentState)
 
     graph.add_node("planner",     planner_node)
@@ -366,24 +394,23 @@ def build_graph() -> StateGraph:
 
     graph.add_edge("synthesizer", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 # ──────────────────────────────────────────────
 # 9. MAIN — RUNNER
 # ──────────────────────────────────────────────
 
-def run_trip_advisor(goal: str, app: StateGraph) -> str:
+def run_trip_advisor(
+    goal: str,
+    app: Any,
+    thread_id: str = DEFAULT_THREAD_ID,
+) -> str:
     console.print(Panel(f"[bold]TRAVEL REQUEST:[/bold] {goal}", title="[bold yellow]Trip Advisor Agent[/bold yellow]", expand=False))
 
     final_state = app.invoke(
-        {
-            "goal":               goal,
-            "plan":               [],
-            "current_step_index": 0,
-            "results":            [],
-            "final_answer":       "",
-        }
+        {"messages": [HumanMessage(content=goal)]},
+        config={"configurable": {"thread_id": thread_id}},
     )
     console.print()
     console.print(Panel(Markdown(final_state["final_answer"]), title="[bold green]YOUR TRIP ADVISOR PLAN[/bold green]", expand=False))
@@ -391,21 +418,22 @@ def run_trip_advisor(goal: str, app: StateGraph) -> str:
 
 
 def main():
-    app = build_graph()
-    console.print("[bold green]Welcome to the Trip Advisor Chat Bot! (Type 'exit' or 'quit' to end)[/bold green]")
-    
-    while True:
-        try:
-            user_input = input("\nYou: ")
-            if user_input.strip().lower() in ("exit", "quit"):
+    with SqliteSaver.from_conn_string(str(DEFAULT_DATABASE_PATH)) as checkpointer:
+        app = build_graph(checkpointer=checkpointer)
+        console.print("[bold green]Welcome to the Trip Advisor Chat Bot! (Type 'exit' or 'quit' to end)[/bold green]")
+
+        while True:
+            try:
+                user_input = input("\nYou: ")
+                if user_input.strip().lower() in ("exit", "quit"):
+                    break
+                if not user_input.strip():
+                    continue
+                run_trip_advisor(user_input, app)
+            except (KeyboardInterrupt, EOFError):
                 break
-            if not user_input.strip():
-                continue
-            run_trip_advisor(user_input, app)
-        except (KeyboardInterrupt, EOFError):
-            break
-            
-    console.print("\n[bold green]Safe travels! Goodbye![/bold green]")
+
+        console.print("\n[bold green]Safe travels! Goodbye![/bold green]")
 
 
 if __name__ == "__main__":

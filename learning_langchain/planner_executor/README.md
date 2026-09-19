@@ -5,36 +5,54 @@ A real-world example of the Planner-Executor multi-agent pattern using LangGraph
 ## Setup
 
 ### 1. Install dependencies
+
 ```bash
 pip install langgraph langchain langchain-groq \
             langchain-community duckduckgo-search \
-            wikipedia requests python-dotenv
+            wikipedia requests python-dotenv \
+            langgraph-checkpoint-sqlite
 ```
 
 ### 2. Get your free API keys
 
 | Service | URL | Tier needed |
-|---|---|---|
-| Groq (LLM) | https://console.groq.com | Free |
-| OpenWeatherMap | https://openweathermap.org/api | Free (1000 calls/day) |
+| --- | --- | --- |
+| Groq (LLM) | <https://console.groq.com> | Free |
+| OpenWeatherMap | <https://openweathermap.org/api> | Free (1000 calls/day) |
 
 ### 3. Create a `.env` file
+
 ```env
 GROQ_API_KEY=your_groq_key_here
 OPENWEATHER_API_KEY=your_openweathermap_key_here
 ```
+
 > If you skip `OPENWEATHER_API_KEY`, the weather tool will return mock data.
 
 ### 4. Run the Agent
+
 ```bash
 python planner_executor_agent.py
 ```
 
 ### 5. Run the Trip Advisor Chat Bot
+
 A specialized travel planning agent built on the same architecture:
+
 ```bash
-python trip_planner_bot.py
+python trip_planner.py
 ```
+
+## Conversation memory
+
+Both agents use LangGraph's SQLite checkpointer. The default CLI session is
+stored in `planner_memory.sqlite3` beside these scripts, so follow-up requests
+remain available after restarting the process. The default thread ID is
+`local_trip_planner`.
+
+To keep separate conversations, call `run_trip_advisor` or `run_agent` with a
+different `thread_id`. SQLite persistence is intended for local, single-process
+use; use a server-backed checkpointer for multi-worker deployments.
 
 ---
 
