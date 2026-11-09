@@ -34,7 +34,7 @@
     },
     {
       "id": 4, "t_ms": 660, "kind": "state", "node": "decomposer",
-      "detail": { "changed": { "scratchpad": ["Follow-up: Which company built the first iPhone?"] }, "iterations": 1 }
+      "detail": { "changed": { "scratchpad": ["Follow-up: Which company built the first iPhone?"], "iterations": 1 } }
     },
     { "id": 5, "t_ms": 665, "kind": "node_end", "node": "decomposer" },
     { "id": 6, "t_ms": 665, "kind": "node_start", "node": "research" },
@@ -48,7 +48,7 @@
       "summary": "Tool web_search returned a result",
       "detail": {
         "tool": "web_search",
-        "output": "Apple Inc. built the first iPhone. Support: press@apple.example, contact [REDACTED:email]"
+        "output": "Apple Inc. built the first iPhone. Press contact: [REDACTED:email]"
       },
       "truncated": true,
       "original_size": 6144
@@ -75,7 +75,7 @@
     },
     {
       "id": 14, "t_ms": 2065, "kind": "state", "node": "decomposer",
-      "detail": { "changed": { "scratchpad": ["Follow-up: Who founded Apple Inc.?"] }, "iterations": 2 }
+      "detail": { "changed": { "scratchpad": ["Follow-up: Who founded Apple Inc.?"], "iterations": 2 } }
     },
     { "id": 15, "t_ms": 2070, "kind": "node_end", "node": "decomposer" },
     { "id": 16, "t_ms": 2070, "kind": "node_start", "node": "research" },
