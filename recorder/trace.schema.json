@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/krishnamohan-seelam/building_agents/recorder/trace.schema.json",
+  "title": "agent-trace/1",
+  "description": "One recorded agent run: a header plus a flat list of steps.",
+  "type": "object",
+  "required": [
+    "schema",
+    "example",
+    "title",
+    "input",
+    "recorded_at",
+    "source",
+    "model",
+    "pricing",
+    "redactions",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "agent-trace/1" },
+    "example": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "input": { "type": "string" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "source": {
+      "type": "object",
+      "required": ["commit"],
+      "additionalProperties": true,
+      "properties": {
+        "repo": { "type": "string" },
+        "commit": { "type": "string", "minLength": 1 }
+      }
+    },
+    "model": { "type": "string" },
+    "pricing": {
+      "type": "object",
+      "required": ["currency", "as_of"],
+      "additionalProperties": false,
+      "properties": {
+        "currency": { "type": "string" },
+        "as_of": { "type": "string", "format": "date" }
+      }
+    },
+    "redactions": { "type": "integer", "minimum": 0 },
+    "graph": {
+      "type": "object",
+      "required": ["nodes", "edges"],
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [{ "type": "string" }, { "type": "string" }],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": ["id", "t_ms", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "t_ms": { "type": "integer", "minimum": 0 },
+        "kind": {
+          "enum": [
+            "node_start",
+            "node_end",
+            "llm",
+            "tool_call",
+            "tool_result",
+            "custom",
+            "state",
+            "error"
+          ]
+        },
+        "node": { "type": "string" },
+        "summary": { "type": "string" },
+        "detail": { "type": "object" },
+        "tokens": {
+          "type": "object",
+          "required": ["in", "out"],
+          "additionalProperties": false,
+          "properties": {
+            "in": { "type": "integer", "minimum": 0 },
+            "out": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "cost_inr": { "type": "number", "minimum": 0 },
+        "truncated": { "type": "boolean" },
+        "original_size": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
