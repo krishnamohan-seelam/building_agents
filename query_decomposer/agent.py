@@ -41,7 +41,9 @@ if sys.platform == "win32" and "pytest" not in sys.modules:
 
 import operator
 import re
-from typing import Annotated, Any, List, TypedDict
+from typing import Annotated, Any, List
+
+from typing_extensions import TypedDict
 
 from dotenv import load_dotenv
 from pydantic import SecretStr

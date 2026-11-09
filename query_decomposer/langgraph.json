@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "query_decomposer": "./agent.py:build_graph"
+  },
+  "env": ".env"
+}
