@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
-from recorder.cache import ToolResultCache, enable_llm_cache
+from recorder.cache import ToolResultCache, disable_llm_cache, enable_llm_cache
 from recorder.pricing import load_price_table
 from recorder.trace import assemble_steps, build_header
 
@@ -121,6 +121,8 @@ def record_run(example: str, input_index: int, cached: bool = False) -> dict:
         for name, tool_fn in tools_dict.items():
             original_tools[name] = tool_fn
             tools_dict[name] = _CachedTool(name, tool_fn, tool_cache)
+    else:
+        disable_llm_cache()
 
     try:
         app = build_graph()

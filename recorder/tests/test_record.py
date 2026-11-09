@@ -66,3 +66,13 @@ def test_cached_rerun_makes_zero_additional_model_calls(fake_llm):
 
     record_run("query_decomposer", input_index=1, cached=True)
     assert fake_llm.call_count == calls_after_first
+
+
+def test_uncached_run_after_a_cached_run_is_not_served_from_the_global_cache(fake_llm):
+    """set_llm_cache is process-global; a cached=False run must not inherit a prior
+    cached=True run's cache (regression: this used to leak across calls)."""
+    record_run("query_decomposer", input_index=1, cached=True)
+    calls_after_cached = fake_llm.call_count
+
+    record_run("query_decomposer", input_index=1, cached=False)
+    assert fake_llm.call_count > calls_after_cached

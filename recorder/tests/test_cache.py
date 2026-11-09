@@ -4,7 +4,7 @@ import shutil
 
 import pytest
 
-from recorder.cache import ToolResultCache, enable_llm_cache, CACHE_DIR
+from recorder.cache import ToolResultCache, disable_llm_cache, enable_llm_cache, CACHE_DIR
 
 TEST_CACHE_DIR = CACHE_DIR / "test-m2-t6"
 
@@ -50,3 +50,13 @@ def test_enable_llm_cache_sets_a_global_cache_without_live_call():
 
     enable_llm_cache("example", cache_dir=TEST_CACHE_DIR)
     assert get_llm_cache() is not None
+
+
+def test_disable_llm_cache_clears_the_global_cache():
+    from langchain_core.globals import get_llm_cache
+
+    enable_llm_cache("example", cache_dir=TEST_CACHE_DIR)
+    assert get_llm_cache() is not None
+
+    disable_llm_cache()
+    assert get_llm_cache() is None

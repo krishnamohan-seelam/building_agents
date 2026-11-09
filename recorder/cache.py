@@ -23,6 +23,15 @@ def enable_llm_cache(example: str, cache_dir: Path = CACHE_DIR) -> None:
     set_llm_cache(SQLiteCache(database_path=str(cache_dir / f"{example}.sqlite3")))
 
 
+def disable_llm_cache() -> None:
+    """Clears LangChain's global LLM cache.
+
+    set_llm_cache is process-global, so a prior cached run's cache would otherwise leak
+    into a later uncached one; record_run calls this whenever cached=False.
+    """
+    set_llm_cache(None)
+
+
 def _cache_key(tool_name: str, args: dict) -> str:
     return json.dumps([tool_name, sorted(args.items())], sort_keys=True)
 
