@@ -1,0 +1,11 @@
+title: "Query Decomposer: Dynamic Self-Ask with Search"
+slug: "query-decomposer"
+post_url: "https://krishnamohan-seelam.github.io/my-blog/query-decomposer-agents-dynamic-self-ask-with-search/"
+
+sample_inputs:
+  - "Who invented the Python programming language, and what university did they study at?"
+  - "What are the approximate GDPs of India and Germany? Calculate which is larger and by what percentage."
+  - "What is LangChain, who created it, and what are its main competitors in the LLM application framework space?"
+
+truncation:
+  max_bytes: 4096

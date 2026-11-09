@@ -8,7 +8,8 @@ from query_decomposer.agent import (
     research_node,
     synthesizer_node,
     log_event,
-    logger
+    logger,
+    build_graph,
 )
 
 
@@ -151,5 +152,27 @@ def test_build_synthesizer_messages() -> None:
     assert len(msgs) == 1
     assert isinstance(msgs[0], HumanMessage)
     assert "Original question: What is X?" in msgs[0].content
+
+
+@patch("query_decomposer.agent.get_llm")
+def test_graph_run_emits_custom_narration_events(mock_get_llm) -> None:
+    """Narration (M2-T5) must flow through get_stream_writer() inside a real graph run."""
+    mock_llm = MagicMock()
+    mock_llm.invoke.return_value = MagicMock(
+        content="Final Answer: 42",
+        usage_metadata={"input_tokens": 5, "output_tokens": 2, "total_tokens": 7},
+    )
+    mock_get_llm.return_value = mock_llm
+
+    app = build_graph()
+    custom_events = list(
+        app.stream(
+            {"question": "What is the answer?", "scratchpad": [], "final_answer": "", "iterations": 0},
+            stream_mode="custom",
+        )
+    )
+
+    assert len(custom_events) >= 1
+    assert all("summary" in event and event["summary"] for event in custom_events)
 
 
