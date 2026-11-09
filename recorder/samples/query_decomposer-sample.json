@@ -1,0 +1,124 @@
+{
+  "schema": "agent-trace/1",
+  "example": "query_decomposer",
+  "title": "Query Decomposer: who founded the company that built the first iPhone?",
+  "input": "Who founded the company that built the first iPhone?",
+  "recorded_at": "2026-11-07T10:00:00+05:30",
+  "source": { "repo": "krishnamohan-seelam/building_agents", "commit": "a1b2c3d" },
+  "model": "groq/llama-3.1-70b-versatile",
+  "pricing": { "currency": "INR", "as_of": "2026-11-07" },
+  "redactions": 1,
+  "graph": {
+    "nodes": ["decomposer", "research", "synthesizer"],
+    "edges": [
+      ["decomposer", "research"],
+      ["research", "decomposer"],
+      ["decomposer", "synthesizer"]
+    ]
+  },
+  "steps": [
+    { "id": 1, "t_ms": 0, "kind": "node_start", "node": "decomposer" },
+    {
+      "id": 2, "t_ms": 640, "kind": "llm", "node": "decomposer",
+      "summary": "Asked a follow-up question",
+      "detail": {
+        "prompt": "Who founded the company that built the first iPhone?",
+        "response": "Follow-up: Which company built the first iPhone?"
+      },
+      "tokens": { "in": 180, "out": 24 },
+      "cost_inr": 0.02
+    },
+    {
+      "id": 3, "t_ms": 650, "kind": "custom", "node": "decomposer",
+      "summary": "Breaking the question into a product lookup, then a founder lookup"
+    },
+    {
+      "id": 4, "t_ms": 660, "kind": "state", "node": "decomposer",
+      "detail": { "changed": { "scratchpad": ["Follow-up: Which company built the first iPhone?"], "iterations": 1 } }
+    },
+    { "id": 5, "t_ms": 665, "kind": "node_end", "node": "decomposer" },
+    { "id": 6, "t_ms": 665, "kind": "node_start", "node": "research" },
+    {
+      "id": 7, "t_ms": 670, "kind": "tool_call", "node": "research",
+      "summary": "Called tool web_search",
+      "detail": { "tool": "web_search", "args": { "query": "company that built the first iPhone" } }
+    },
+    {
+      "id": 8, "t_ms": 1420, "kind": "tool_result", "node": "research",
+      "summary": "Tool web_search returned a result",
+      "detail": {
+        "tool": "web_search",
+        "output": "Apple Inc. built the first iPhone. Press contact: [REDACTED:email]"
+      },
+      "truncated": true,
+      "original_size": 6144
+    },
+    {
+      "id": 9, "t_ms": 1425, "kind": "state", "node": "research",
+      "detail": { "changed": { "scratchpad": ["Intermediate answer: Apple Inc."] } }
+    },
+    { "id": 10, "t_ms": 1430, "kind": "node_end", "node": "research" },
+    { "id": 11, "t_ms": 1430, "kind": "node_start", "node": "decomposer" },
+    {
+      "id": 12, "t_ms": 2050, "kind": "llm", "node": "decomposer",
+      "summary": "Asked a follow-up question",
+      "detail": {
+        "prompt": "Intermediate answer: Apple Inc.",
+        "response": "Follow-up: Who founded Apple Inc.?"
+      },
+      "tokens": { "in": 210, "out": 22 },
+      "cost_inr": 0.02
+    },
+    {
+      "id": 13, "t_ms": 2060, "kind": "custom", "node": "decomposer",
+      "summary": "Product identified; now resolving its founders"
+    },
+    {
+      "id": 14, "t_ms": 2065, "kind": "state", "node": "decomposer",
+      "detail": { "changed": { "scratchpad": ["Follow-up: Who founded Apple Inc.?"], "iterations": 2 } }
+    },
+    { "id": 15, "t_ms": 2070, "kind": "node_end", "node": "decomposer" },
+    { "id": 16, "t_ms": 2070, "kind": "node_start", "node": "research" },
+    {
+      "id": 17, "t_ms": 2075, "kind": "tool_call", "node": "research",
+      "summary": "Called tool web_search",
+      "detail": { "tool": "web_search", "args": { "query": "who founded Apple Inc." } }
+    },
+    {
+      "id": 18, "t_ms": 2800, "kind": "tool_result", "node": "research",
+      "summary": "Tool web_search returned a result",
+      "detail": { "tool": "web_search", "output": "Apple Inc. was founded by Steve Jobs, Steve Wozniak and Ronald Wayne." }
+    },
+    {
+      "id": 19, "t_ms": 2805, "kind": "state", "node": "research",
+      "detail": { "changed": { "scratchpad": ["Intermediate answer: Steve Jobs, Steve Wozniak and Ronald Wayne."] } }
+    },
+    { "id": 20, "t_ms": 2810, "kind": "node_end", "node": "research" },
+    { "id": 21, "t_ms": 2810, "kind": "node_start", "node": "decomposer" },
+    {
+      "id": 22, "t_ms": 3400, "kind": "llm", "node": "decomposer",
+      "summary": "Reached a final answer",
+      "detail": {
+        "prompt": "Intermediate answer: Steve Jobs, Steve Wozniak and Ronald Wayne.",
+        "response": "Final Answer: Apple Inc., founded by Steve Jobs, Steve Wozniak and Ronald Wayne, built the first iPhone."
+      },
+      "tokens": { "in": 240, "out": 34 },
+      "cost_inr": 0.03
+    },
+    { "id": 23, "t_ms": 3405, "kind": "node_end", "node": "decomposer" },
+    { "id": 24, "t_ms": 3405, "kind": "node_start", "node": "synthesizer" },
+    {
+      "id": 25, "t_ms": 3410, "kind": "custom", "node": "synthesizer",
+      "summary": "Composing the final answer from the scratchpad"
+    },
+    {
+      "id": 26, "t_ms": 3415, "kind": "state", "node": "synthesizer",
+      "detail": {
+        "changed": {
+          "final_answer": "Apple Inc., founded by Steve Jobs, Steve Wozniak and Ronald Wayne, built the first iPhone."
+        }
+      }
+    },
+    { "id": 27, "t_ms": 3420, "kind": "node_end", "node": "synthesizer" }
+  ]
+}
