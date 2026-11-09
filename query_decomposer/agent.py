@@ -96,6 +96,14 @@ def narrate(summary: str) -> None:
         pass
 
 
+def emit_tool_event(kind: str, tool_name: str, **fields) -> None:
+    """Emits a tool_call/tool_result trace event; a no-op outside a graph run, same as narrate()."""
+    try:
+        get_stream_writer()({"kind": kind, "tool": tool_name, **fields})
+    except RuntimeError:
+        pass
+
+
 def log_event(event_type: str, data: dict) -> None:
     """Log a structured JSON event to the log file."""
     log_entry = {
@@ -342,22 +350,25 @@ def research_node(state: AgentState) -> dict:
         f"Sub-question: [italic]{sub_question}[/italic]"
     )
     console.print(f"[bold blue][RESEARCH][/bold blue] Using tool: [cyan]{tool_name}[/cyan]")
-    narrate(f"Picked {tool_name} to answer: {sub_question}")
+    narrate(f"{tool_name} best matches this sub-question's domain, so using it")
+
+    if tool_name == "wikipedia_lookup":
+        tool_args = {"topic": sub_question}
+    elif tool_name == "calculator":
+        tool_args = {"expression": sub_question}
+    else:  # web_search
+        tool_args = {"query": sub_question}
 
     log_event("tool_start", {
         "tool_name": tool_name,
         "arguments": {"input": sub_question}
     })
+    emit_tool_event("tool_call", tool_name, args=tool_args)
     tool_start_time = time.perf_counter()
 
     try:
-        if tool_name == "wikipedia_lookup":
-            answer = tool_fn.invoke({"topic": sub_question})
-        elif tool_name == "calculator":
-            answer = tool_fn.invoke({"expression": sub_question})
-        else:  # web_search
-            answer = tool_fn.invoke({"query": sub_question})
-        
+        answer = tool_fn.invoke(tool_args)
+
         tool_latency = time.perf_counter() - tool_start_time
         log_event("tool_end", {
             "tool_name": tool_name,
@@ -365,6 +376,7 @@ def research_node(state: AgentState) -> dict:
             "latency_seconds": tool_latency,
             "status": "success"
         })
+        emit_tool_event("tool_result", tool_name, output=answer)
     except Exception as e:
         tool_latency = time.perf_counter() - tool_start_time
         answer = f"Tool error: {e}"
@@ -375,6 +387,7 @@ def research_node(state: AgentState) -> dict:
             "status": "error",
             "error": str(e)
         })
+        emit_tool_event("tool_result", tool_name, output=answer)
 
     # Truncate very long results to keep the scratchpad manageable
     if len(answer) > 800:

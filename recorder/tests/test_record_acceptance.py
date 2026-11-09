@@ -2,6 +2,7 @@
 not just the M1 hand-written fixture's. LLM mocked; no live API calls."""
 
 import shutil
+from unittest.mock import patch
 
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
@@ -17,11 +18,10 @@ def _clean_traces_dir():
     shutil.rmtree(TRACES_DIR, ignore_errors=True)
 
 
-def test_recorded_trace_contains_real_custom_narration(monkeypatch):
+def test_recorded_trace_contains_real_custom_narration():
     llm = FakeListChatModel(responses=["Final Answer: 42"])
-    monkeypatch.setattr("query_decomposer.agent.get_llm", lambda: llm)
-
-    trace = record_run("query_decomposer", input_index=1, cached=False)
+    with patch("query_decomposer.agent.get_llm", return_value=llm):
+        trace = record_run("query_decomposer", input_index=1, cached=False)
 
     custom_steps = [s for s in trace["steps"] if s["kind"] == "custom"]
     assert len(custom_steps) >= 1

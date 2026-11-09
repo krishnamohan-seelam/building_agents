@@ -59,15 +59,47 @@ class _TraceBuilder:
         self.steps.append(step)
         return step
 
+    def _redact_tracked(self, value: Any) -> Any:
+        """redact_text/_redact_recursive, tallying the count onto self.redactions."""
+        redacted, count = (
+            _redact_recursive(value) if not isinstance(value, str) else redact_text(value)
+        )
+        self.redactions += count
+        return redacted
+
+    def _emit_writer_event(self, node_name: str, payload: dict) -> None:
+        """A `custom`-mode payload is either plain narration ({"summary": ...}) or a
+        tool_call/tool_result event ({"kind": "tool_call"/"tool_result", "tool": ..., ...}),
+        both written by query_decomposer.agent's get_stream_writer() calls."""
+        kind = payload.get("kind")
+
+        if kind == "tool_call":
+            args = self._redact_tracked(payload.get("args", {}))
+            self._emit("tool_call", node_name, detail={"tool": payload.get("tool"), "args": args})
+            return
+
+        if kind == "tool_result":
+            output = self._redact_tracked(str(payload.get("output", "")))
+            output, truncated, original_size = truncate_value(output, self.max_truncate_bytes)
+            self._emit(
+                "tool_result",
+                node_name,
+                detail={"tool": payload.get("tool"), "output": output},
+                truncated=truncated or None,
+                original_size=original_size if truncated else None,
+            )
+            return
+
+        summary = self._redact_tracked(str(payload.get("summary", "")))
+        self._emit("custom", node_name, summary=summary)
+
     def flush_node(self, node_name: str, delta: dict, buffered: list[tuple[str, Any]]) -> None:
         self._emit("node_start", node_name)
 
         llm_runs: dict[str, dict] = {}
         for mode, payload in buffered:
             if mode == "custom":
-                summary, count = redact_text(str(payload.get("summary", "")))
-                self.redactions += count
-                self._emit("custom", node_name, summary=summary)
+                self._emit_writer_event(node_name, payload)
             elif mode == "messages":
                 chunk, metadata = payload
                 run_id = getattr(chunk, "id", None) or "default"
@@ -81,8 +113,7 @@ class _TraceBuilder:
                     }
 
         for run in llm_runs.values():
-            response, count = redact_text(run["content"])
-            self.redactions += count
+            response = self._redact_tracked(run["content"])
             response, truncated, original_size = truncate_value(response, self.max_truncate_bytes)
 
             cost_inr = None
@@ -106,8 +137,7 @@ class _TraceBuilder:
             )
 
         if delta:
-            redacted_delta, count = _redact_recursive(delta)
-            self.redactions += count
+            redacted_delta = self._redact_tracked(delta)
             self._emit("state", node_name, detail={"changed": redacted_delta})
 
         self._emit("node_end", node_name)

@@ -116,3 +116,52 @@ def test_header_and_steps_together_validate_against_schema():
     with open(SCHEMA_PATH, encoding="utf-8") as f:
         schema = json.load(f)
     Draft202012Validator(schema).validate(trace)
+
+
+def test_assemble_steps_emits_tool_call_and_tool_result():
+    events = [
+        ("custom", {"summary": "web_search best matches this sub-question's domain, so using it"}),
+        ("custom", {"kind": "tool_call", "tool": "web_search", "args": {"query": "who founded Apple"}}),
+        ("custom", {"kind": "tool_result", "tool": "web_search", "output": "Steve Jobs and others"}),
+        ("updates", {"research": {"scratchpad": ["Q: who founded Apple\nA: Steve Jobs and others"]}}),
+    ]
+
+    steps, redactions = assemble_steps(events, PRICE_TABLE, model="fake-model")
+
+    kinds = [s["kind"] for s in steps]
+    assert kinds == ["node_start", "custom", "tool_call", "tool_result", "state", "node_end"]
+    assert redactions == 0
+
+    tool_call_step = next(s for s in steps if s["kind"] == "tool_call")
+    assert tool_call_step["detail"] == {"tool": "web_search", "args": {"query": "who founded Apple"}}
+
+    tool_result_step = next(s for s in steps if s["kind"] == "tool_result")
+    assert tool_result_step["detail"] == {"tool": "web_search", "output": "Steve Jobs and others"}
+
+
+def test_tool_result_is_redacted_and_can_be_truncated():
+    events = [
+        ("custom", {"kind": "tool_call", "tool": "web_search", "args": {"query": "contact info"}}),
+        ("custom", {"kind": "tool_result", "tool": "web_search", "output": "x" * 5000 + " a@example.com"}),
+        ("updates", {"research": {"scratchpad": ["entry"]}}),
+    ]
+
+    steps, redactions = assemble_steps(events, PRICE_TABLE, model="fake-model", max_truncate_bytes=100)
+
+    tool_result_step = next(s for s in steps if s["kind"] == "tool_result")
+    assert tool_result_step["truncated"] is True
+    assert tool_result_step["original_size"] > 100
+    assert redactions == 1
+
+
+def test_tool_call_args_are_redacted():
+    events = [
+        ("custom", {"kind": "tool_call", "tool": "web_search", "args": {"query": "email a@example.com"}}),
+        ("updates", {"research": {"scratchpad": ["entry"]}}),
+    ]
+
+    steps, redactions = assemble_steps(events, PRICE_TABLE, model="fake-model")
+
+    tool_call_step = next(s for s in steps if s["kind"] == "tool_call")
+    assert "[REDACTED:email]" in tool_call_step["detail"]["args"]["query"]
+    assert redactions == 1

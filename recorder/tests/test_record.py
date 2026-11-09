@@ -1,6 +1,7 @@
 """Unit tests for recorder/record.py (M2-T8). LLM mocked throughout; no live API calls."""
 
 import shutil
+from unittest.mock import patch
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -35,10 +36,10 @@ def _clean_traces_dir():
 
 
 @pytest.fixture
-def fake_llm(monkeypatch):
+def fake_llm():
     llm = _CountingFakeChatModel(responses=["Final Answer: 42"])
-    monkeypatch.setattr("query_decomposer.agent.get_llm", lambda: llm)
-    return llm
+    with patch("query_decomposer.agent.get_llm", return_value=llm):
+        yield llm
 
 
 def test_record_run_writes_a_schema_valid_trace(fake_llm):
@@ -76,3 +77,21 @@ def test_uncached_run_after_a_cached_run_is_not_served_from_the_global_cache(fak
 
     record_run("query_decomposer", input_index=1, cached=False)
     assert fake_llm.call_count > calls_after_cached
+
+
+def test_recorded_trace_includes_tool_call_and_tool_result_steps_for_a_research_cycle():
+    llm = FakeListChatModel(
+        responses=["Follow-up [web_search]: who founded Apple?", "Final Answer: Steve Jobs"]
+    )
+    mock_tool = type("MockTool", (), {"invoke": staticmethod(lambda args: "Steve Jobs and others")})()
+
+    with patch("query_decomposer.agent.get_llm", return_value=llm), \
+         patch.dict("query_decomposer.agent.TOOLS", {"web_search": mock_tool}):
+        trace = record_run("query_decomposer", input_index=1, cached=False)
+
+    kinds = [s["kind"] for s in trace["steps"]]
+    assert "tool_call" in kinds
+    assert "tool_result" in kinds
+
+    tool_result_step = next(s for s in trace["steps"] if s["kind"] == "tool_result")
+    assert tool_result_step["detail"]["output"] == "Steve Jobs and others"
