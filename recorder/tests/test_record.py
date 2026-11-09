@@ -1,6 +1,8 @@
 """Unit tests for recorder/record.py (M2-T8). LLM mocked throughout; no live API calls."""
 
+import json
 import shutil
+import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -95,3 +97,33 @@ def test_recorded_trace_includes_tool_call_and_tool_result_steps_for_a_research_
 
     tool_result_step = next(s for s in trace["steps"] if s["kind"] == "tool_result")
     assert tool_result_step["detail"]["output"] == "Steve Jobs and others"
+
+
+def test_preview_copies_the_trace_into_the_target_blog_assets_traces_dir(fake_llm, tmp_path):
+    blog_path = tmp_path / "my-blog"
+
+    trace = record_run(
+        "query_decomposer", input_index=1, cached=False, preview_path=str(blog_path)
+    )
+
+    out_path = TRACES_DIR / "query_decomposer-input1.json"
+    previewed_path = blog_path / "assets" / "traces" / out_path.name
+    assert previewed_path.exists()
+
+    with open(previewed_path, encoding="utf-8") as f:
+        previewed_trace = json.load(f)
+    assert previewed_trace == trace
+
+
+def test_preview_never_runs_git_in_the_target_blog_dir(fake_llm, tmp_path):
+    blog_path = tmp_path / "my-blog"
+    blog_path.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=blog_path, check=True)
+
+    record_run("query_decomposer", input_index=1, cached=False, preview_path=str(blog_path))
+
+    result = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=blog_path, capture_output=True, text=True, check=True
+    )
+    # The copied trace is untracked -- nothing was staged or committed on the caller's behalf.
+    assert result.stdout.startswith("?? assets")

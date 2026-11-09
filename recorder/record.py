@@ -2,6 +2,7 @@
 
 import importlib
 import json
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -94,9 +95,27 @@ class _CachedTool:
         return result
 
 
-def record_run(example: str, input_index: int, cached: bool = False) -> dict:
+def preview_trace(out_path: Path, blog_path: Path) -> Path:
+    """Copies a written trace file into <blog_path>/assets/traces/, for local review in the
+    blog's own viewer before the author decides to commit (publish) it themselves.
+
+    A plain file copy only -- never runs git in blog_path, per AGENTS.md's rule that this
+    repo's tooling never commits on the author's behalf in the blog repo.
+    """
+    dest_dir = blog_path / "assets" / "traces"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_dir / out_path.name
+    shutil.copyfile(out_path, dest_path)
+    return dest_path
+
+
+def record_run(
+    example: str, input_index: int, cached: bool = False, preview_path: str | None = None
+) -> dict:
     """Runs `example` on its `input_index`-th sample input (1-based) and writes a validated
-    agent-trace/1 trace file under traces/<slug>/."""
+    agent-trace/1 trace file under traces/<slug>/. If `preview_path` is given (a path to a
+    local my-blog checkout), also copies the trace into its assets/traces/ so it can be
+    reviewed in the real viewer via `bundle exec jekyll serve` there -- no commit is made."""
     config = _load_example_config(example)
     sample_inputs = config["sample_inputs"]
 
@@ -158,5 +177,8 @@ def record_run(example: str, input_index: int, cached: bool = False) -> dict:
     out_path = out_dir / f"{example}-input{input_index}.json"
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(trace, f, indent=2, ensure_ascii=False)
+
+    if preview_path is not None:
+        preview_trace(out_path, Path(preview_path))
 
     return trace

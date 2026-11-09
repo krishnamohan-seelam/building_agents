@@ -11,20 +11,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", type=int, required=True)
     parser.add_argument("--cached", action="store_true")
     parser.add_argument("--publish", type=str, default=None)
-    parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--preview", type=str, default=None, metavar="BLOG_PATH")
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
 
-    if args.publish is not None or args.preview:
-        raise NotImplementedError(
-            "--publish and --preview are M4 scope; not implemented in M2."
-        )
+    if args.publish is not None:
+        raise NotImplementedError("--publish is not implemented yet; use --preview and publish by hand.")
 
-    trace = record_run(args.example, input_index=args.input, cached=args.cached)
+    trace = record_run(
+        args.example, input_index=args.input, cached=args.cached, preview_path=args.preview
+    )
     print(f"Recorded {trace['example']} input {args.input} -> {len(trace['steps'])} steps")
+    if args.preview is not None:
+        print(
+            f"Copied into {args.preview}/assets/traces/ for local review "
+            f"(run `bundle exec jekyll serve` there; nothing was committed)."
+        )
 
 
 if __name__ == "__main__":
