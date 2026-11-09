@@ -56,6 +56,7 @@ from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
 from query_decomposer.utils.tools import web_search, wikipedia_lookup, calculator, pick_tool
@@ -85,6 +86,15 @@ if not logger.handlers:
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
+
+def narrate(summary: str) -> None:
+    """Emits a one-sentence custom trace event; a no-op outside a graph run (e.g. direct
+    node calls in unit tests), since get_stream_writer() requires a runnable context."""
+    try:
+        get_stream_writer()({"summary": summary})
+    except RuntimeError:
+        pass
+
 
 def log_event(event_type: str, data: dict) -> None:
     """Log a structured JSON event to the log file."""
@@ -257,6 +267,11 @@ def decomposer_node(state: AgentState) -> dict:
 
     console.print(f"[bold magenta][DECOMPOSER][/bold magenta] → {raw[:200]}")
 
+    if _FINAL_RE.search(raw):
+        narrate("Enough has been gathered to answer directly")
+    else:
+        narrate("The question still needs a follow-up before it can be answered")
+
     output = {"iterations": iters + 1, "final_answer": raw}
     log_event("node_end", {
         "node_name": "decomposer",
@@ -327,6 +342,7 @@ def research_node(state: AgentState) -> dict:
         f"Sub-question: [italic]{sub_question}[/italic]"
     )
     console.print(f"[bold blue][RESEARCH][/bold blue] Using tool: [cyan]{tool_name}[/cyan]")
+    narrate(f"Picked {tool_name} to answer: {sub_question}")
 
     log_event("tool_start", {
         "tool_name": tool_name,
@@ -404,6 +420,7 @@ def synthesizer_node(state: AgentState) -> dict:
     if final_match and decision != "__synthesize__":
         raw_answer = final_match.group(1).strip()
         console.print("[bold green][SYNTHESIZER][/bold green] Using decomposer's inline answer.")
+        narrate("Decomposer already gave a final answer, so reusing it as-is")
         output = {"final_answer": raw_answer}
         log_event("node_end", {
             "node_name": "synthesizer",
@@ -459,6 +476,7 @@ def synthesizer_node(state: AgentState) -> dict:
         raise
 
     console.print("[bold green][SYNTHESIZER][/bold green] Done.")
+    narrate("No inline final answer was given, so synthesizing one from the scratchpad")
     output = {"final_answer": raw_answer}
     log_event("node_end", {
         "node_name": "synthesizer",
