@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hitl-agents"
+version = "0.1.0"
+description = "HITL Agents"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+package-dir = {"hitl_agents" = "."}
+packages = ["hitl_agents"]
