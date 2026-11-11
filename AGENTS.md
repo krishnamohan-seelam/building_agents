@@ -38,9 +38,9 @@ The rules below are the parts an agent must never break.
 | ID | Milestone | Done when | Status |
 | --- | --- | --- | --- |
 | M0 | `langgraph.json` at root; `query_decomposer` opens in Studio | `langgraph dev` shows the 3-node graph | todo |
-| M1 | `recorder/trace.schema.json` + hand-written sample trace | sample validates in pytest | todo |
-| M2 | `recorder/` package: `record query_decomposer --input <n> [--cached]` | output validates; redaction, truncation and pricing unit tests pass; cached rerun makes 0 model calls | todo |
-| M3 | Viewer in my-blog (separate repo, not here) | sample trace renders under `jekyll serve` | todo |
+| M1 | `recorder/trace.schema.json` + hand-written sample trace | sample validates in pytest | done |
+| M2 | `recorder/` package: `record query_decomposer --input <n> [--cached]` | output validates; redaction, truncation and pricing unit tests pass; cached rerun makes 0 model calls | done |
+| M3 | Viewer in my-blog (separate repo, not here) | sample trace renders under `jekyll serve` | done (pending author's own visual spot-check) |
 | M4 | `--publish ../my-blog` and `--preview` | trace copied; post previews locally | todo |
 
 Pilot example: `query_decomposer`. Legacy-agent adapter and multi-input selector come after M4.
@@ -93,6 +93,20 @@ building_agents/
   state `question`, `scratchpad` (append-only), `final_answer`, `iterations`;
   `get_llm()` picks Groq → Google → OpenAI from whichever key is set; `MAX_ITERATIONS = 5`
   (the README says 8 — the code is the source of truth).
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in `krishnamohan-seelam/building_agents` (via `gh`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), unchanged. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `GLOSSARY.md` + `docs/adr/` for the whole repo. See `docs/agents/domain.md`.
 
 ## How to work here
 
