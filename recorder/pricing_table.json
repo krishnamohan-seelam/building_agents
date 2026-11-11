@@ -2,7 +2,7 @@
   "as_of": "2026-11-09",
   "currency": "INR",
   "models": {
-    "groq/llama-3.3-70b-versatile": { "inr_per_1k_in": 0.04, "inr_per_1k_out": 0.08 },
+    "groq/llama-3.1-8b-instant": { "inr_per_1k_in": 0.005, "inr_per_1k_out": 0.008 },
     "google/gemini-1.5-flash": { "inr_per_1k_in": 0.02, "inr_per_1k_out": 0.06 },
     "openai/gpt-4o-mini": { "inr_per_1k_in": 0.125, "inr_per_1k_out": 0.5 }
   }

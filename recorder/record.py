@@ -20,7 +20,7 @@ SCHEMA_PATH = REPO_ROOT / "recorder" / "trace.schema.json"
 LANGGRAPH_JSON_PATH = REPO_ROOT / "langgraph.json"
 
 _MODEL_ID_MAP = {
-    "llama-3.3-70b-versatile": "groq/llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant": "groq/llama-3.1-8b-instant",
     "gemini-1.5-flash": "google/gemini-1.5-flash",
     "gpt-4o-mini": "openai/gpt-4o-mini",
 }
