@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recorder"
+version = "0.1.0"
+description = "Records agent-trace/1 traces from LangGraph examples in this repo"
+requires-python = ">=3.11"
+
+[project.scripts]
+record = "recorder.cli:main"
+
+[tool.setuptools]
+package-dir = {"recorder" = "."}
+packages = ["recorder", "recorder.tests"]
