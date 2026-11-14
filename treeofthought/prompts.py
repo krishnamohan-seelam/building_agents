@@ -45,12 +45,16 @@ Write the final answer, directly addressing the problem, using this path's reaso
 
 
 def build_generator_messages(problem: str, path_so_far: str, k: int):
-    """Build generator messages """
+    """Build generator messages."""
     return (
-        PromptBuilder("decomposer")
+        PromptBuilder("generator")
         .system(GENERATOR_SYSTEM)
         .human(GENERATOR_HUMAN_TEMPLATE)
-        .build(problem=problem, path_so_far=path_so_far, k=k)
+        .build(
+            problem=problem,
+            path_so_far=path_so_far or "(none yet — this is the root)",
+            k=k,
+        )
     )
 
 

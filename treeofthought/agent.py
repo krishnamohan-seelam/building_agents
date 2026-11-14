@@ -32,34 +32,19 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
-try:
-    from .memory import (
-        DEFAULT_DATABASE_PATH,
-        DEFAULT_THREAD_ID,
-        format_conversation_history,
-    )
-    from .prompts import (
-        build_generator_messages,
-        build_evaluator_messages,
-        build_synthesizer_messages,
-    )
-    from .report import generate_html_report
-    from .utils.thought import Thought, format_path, new_id
-    from .utils.schemas import GeneratorOutput, EvaluatorOutput, SynthesisOutput
-except ImportError:
-    from memory import (
-        DEFAULT_DATABASE_PATH,
-        DEFAULT_THREAD_ID,
-        format_conversation_history,
-    )
-    from prompts import (
-        build_generator_messages,
-        build_evaluator_messages,
-        build_synthesizer_messages,
-    )
-    from report import generate_html_report
-    from utils.thought import Thought, format_path, new_id
-    from utils.schemas import GeneratorOutput, EvaluatorOutput, SynthesisOutput
+from treeofthought.memory import (
+    DEFAULT_DATABASE_PATH,
+    DEFAULT_THREAD_ID,
+    format_conversation_history,
+)
+from treeofthought.prompts import (
+    build_generator_messages,
+    build_evaluator_messages,
+    build_synthesizer_messages,
+)
+from treeofthought.report import generate_html_report
+from treeofthought.utils.thought import Thought, format_path, new_id
+from treeofthought.utils.schemas import GeneratorOutput, EvaluatorOutput, SynthesisOutput
 
 load_dotenv()
 
@@ -98,6 +83,13 @@ MAX_DEPTH = 3
 BEAM_WIDTH = 2
 MAX_TOTAL_THOUGHTS = 6
 SOLVED_THRESHOLD = 8.0
+MAX_INPUT_CHARS = 4000
+LLM_TIMEOUT_SECONDS = 30
+LLM_MAX_RETRIES = 1
+
+GENERATOR_MODEL = os.getenv("TOT_GENERATOR_MODEL", "gpt-5.4-nano")
+EVALUATOR_MODEL = os.getenv("TOT_EVALUATOR_MODEL", "gpt-5.4")
+SYNTHESIS_MODEL = os.getenv("TOT_SYNTHESIS_MODEL", "gpt-5.4")
 
 
 def get_llm(model: str, temperature: float):
@@ -107,13 +99,10 @@ def get_llm(model: str, temperature: float):
             model=model,
             temperature=temperature,
             api_key=SecretStr(openai_key),
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=LLM_MAX_RETRIES,
         )
     raise ValueError("No LLM API key found. Set OPENAI_API_KEY in your .env file.")
-
-
-generator_llm = get_llm("gpt-5.4-nano", temperature=0.7)
-evaluation_llm = get_llm("gpt-5.4", temperature=0.2)
-synthesis_llm = get_llm("gpt-5.4", temperature=0)
 
 
 # ──────────────────────────────────────────────
@@ -145,7 +134,7 @@ def generator_node(agent_state: AgentState) -> dict:
     parents = agent_state["frontier"]
     problem = agent_state["problem"]
     new_thoughts: List[Thought] = []
-    structured_llm = generator_llm.with_structured_output(GeneratorOutput)
+    structured_llm = get_llm(GENERATOR_MODEL, temperature=0.7).with_structured_output(GeneratorOutput)
 
     console.print(
         f"\n[bold magenta][GENERATOR][/bold magenta] "
@@ -158,7 +147,7 @@ def generator_node(agent_state: AgentState) -> dict:
             path_so_far=format_path(parent),
             k=NUM_CANDIDATES_PER_THOUGHT,
         )
-        log_event("llm_start", {"node_name": "generator", "parent_id": parent["id"]})
+        log_event("llm_start", {"node_name": "generator", "parent_id": parent["id"], "messages": messages})
         response: GeneratorOutput = structured_llm.invoke(messages)  # type: ignore[assignment]
         log_event("llm_end", {"node_name": "generator", "response": response.model_dump()})
 
@@ -192,14 +181,14 @@ def evaluator_node(agent_state: AgentState) -> dict:
     })
 
     scored: List[Thought] = []
-    structured_llm = evaluation_llm.with_structured_output(EvaluatorOutput)
+    structured_llm = get_llm(EVALUATOR_MODEL, temperature=0.2).with_structured_output(EvaluatorOutput)
 
     for thought in agent_state["pending_evaluation"]:
         messages = build_evaluator_messages(
             problem=agent_state["problem"],
             path=format_path(thought),
         )
-        log_event("llm_start", {"node_name": "evaluator", "thought_id": thought["id"]})
+        log_event("llm_start", {"node_name": "evaluator", "thought_id": thought["id"], "messages": messages})
         response: EvaluatorOutput = structured_llm.invoke(messages)  # type: ignore[assignment]
         log_event("llm_end", {"node_name": "evaluator", "response": response.model_dump()})
 
@@ -280,8 +269,8 @@ def synthesizer_node(agent_state: AgentState) -> dict:
         problem=agent_state["problem"],
         winning_path=format_path(winner),
     )
-    structured_llm = synthesis_llm.with_structured_output(SynthesisOutput)
-    log_event("llm_start", {"node_name": "synthesizer", "winner_id": winner["id"]})
+    structured_llm = get_llm(SYNTHESIS_MODEL, temperature=0).with_structured_output(SynthesisOutput)
+    log_event("llm_start", {"node_name": "synthesizer", "winner_id": winner["id"], "messages": messages})
     result: SynthesisOutput = structured_llm.invoke(messages)  # type: ignore[assignment]
     log_event("llm_end", {"node_name": "synthesizer", "response": result.model_dump()})
 
@@ -352,6 +341,9 @@ def run_agent(
     compiled with one) and folded into the problem statement so follow-up requests
     ("make it shorter", "try again but funnier") can refer back to earlier turns.
     """
+    if len(user_input) > MAX_INPUT_CHARS:
+        raise ValueError(f"user_input exceeds MAX_INPUT_CHARS ({MAX_INPUT_CHARS})")
+
     if app is None:
         app = build_graph()
 

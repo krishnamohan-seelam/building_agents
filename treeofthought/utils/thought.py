@@ -1,11 +1,11 @@
-from typing import List, Annotated, TypedDict, Literal
+from typing import List, Optional, TypedDict, Literal
 
 class Thought(TypedDict):
     id: str
     parent_id: str | None
     path: List[str]
     content: str
-    score: float
+    score: Optional[float]
     status: Literal["active", "pruned", "solved"]
 
 
