@@ -19,6 +19,10 @@ import time
 from datetime import datetime, timezone
 from typing import Annotated, Any, List, Optional, TypedDict
 
+import truststore
+
+truststore.inject_into_ssl()
+
 from dotenv import load_dotenv
 from pydantic import SecretStr
 from rich.console import Console
@@ -44,7 +48,7 @@ from treeofthought.prompts import (
 )
 from treeofthought.report import generate_html_report
 from treeofthought.utils.thought import Thought, format_path, new_id
-from treeofthought.utils.schemas import GeneratorOutput, EvaluatorOutput, SynthesisOutput
+from treeofthought.utils.schemas import GeneratorOutput, EvaluatorOutput
 
 load_dotenv()
 
@@ -89,7 +93,7 @@ LLM_MAX_RETRIES = 1
 
 GENERATOR_MODEL = os.getenv("TOT_GENERATOR_MODEL", "gpt-5.4-nano")
 EVALUATOR_MODEL = os.getenv("TOT_EVALUATOR_MODEL", "gpt-5.4")
-SYNTHESIS_MODEL = os.getenv("TOT_SYNTHESIS_MODEL", "gpt-5.4")
+SYNTHESIS_MODEL = os.getenv("TOT_SYNTHESIS_MODEL", "gemini-3.1-pro-preview")
 
 
 def get_llm(model: str, temperature: float):
@@ -103,6 +107,40 @@ def get_llm(model: str, temperature: float):
             max_retries=LLM_MAX_RETRIES,
         )
     raise ValueError("No LLM API key found. Set OPENAI_API_KEY in your .env file.")
+
+
+def _extract_text(content) -> str:
+    """Pull plain text out of a chat response's content.
+
+    Some models (e.g. Gemini with reasoning/signatures) return a list of content
+    blocks instead of a plain string; only the "text" blocks matter to us.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+            if not isinstance(block, dict) or block.get("type") == "text"
+        )
+    return str(content)
+
+
+def get_synthesis_llm(model: str, temperature: float):
+    """Gemini for the synthesizer: the final write-up benefits from its larger,
+    higher-quality model more than generator/evaluator need it for their short outputs."""
+    google_key = os.getenv("GOOGLE_API_KEY")
+    if google_key:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        return ChatGoogleGenerativeAI(
+            model=model,
+            temperature=temperature,
+            api_key=SecretStr(google_key),
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=LLM_MAX_RETRIES,
+        )
+    raise ValueError("No LLM API key found. Set GOOGLE_API_KEY in your .env file.")
 
 
 # ──────────────────────────────────────────────
@@ -269,12 +307,13 @@ def synthesizer_node(agent_state: AgentState) -> dict:
         problem=agent_state["problem"],
         winning_path=format_path(winner),
     )
-    structured_llm = get_llm(SYNTHESIS_MODEL, temperature=0).with_structured_output(SynthesisOutput)
+    llm = get_synthesis_llm(SYNTHESIS_MODEL, temperature=0)
     log_event("llm_start", {"node_name": "synthesizer", "winner_id": winner["id"], "messages": messages})
-    result: SynthesisOutput = structured_llm.invoke(messages)  # type: ignore[assignment]
-    log_event("llm_end", {"node_name": "synthesizer", "response": result.model_dump()})
+    response = llm.invoke(messages)
+    final_answer = _extract_text(response.content)
+    log_event("llm_end", {"node_name": "synthesizer", "response": final_answer})
 
-    output = {"final_answer": result.final_answer}
+    output = {"final_answer": final_answer}
     log_event("node_end", {"node_name": "synthesizer", "output": output})
     return output
 

@@ -1,6 +1,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from langchain_core.messages import AIMessage
+
 from treeofthought.agent import (
     router,
     generator_node,
@@ -12,7 +14,7 @@ from treeofthought.agent import (
     logger,
 )
 from treeofthought.utils.thought import Thought, format_path, new_id
-from treeofthought.utils.schemas import GeneratorOutput, ThoughtCandidate, EvaluatorOutput, SynthesisOutput
+from treeofthought.utils.schemas import GeneratorOutput, ThoughtCandidate, EvaluatorOutput
 
 
 def _thought(id_="root", parent_id=None, path=None, score=None, status="active") -> Thought:
@@ -150,13 +152,11 @@ def test_evaluator_node_marks_solved(mock_get_llm) -> None:
         assert result["scored_thoughts"][0]["status"] == "solved"
 
 
-@patch("treeofthought.agent.get_llm")
-def test_synthesizer_node_picks_best_scored_thought(mock_get_llm) -> None:
+@patch("treeofthought.agent.get_synthesis_llm")
+def test_synthesizer_node_picks_best_scored_thought(mock_get_synthesis_llm) -> None:
     mock_llm = MagicMock()
-    mock_llm.with_structured_output.return_value.invoke.return_value = SynthesisOutput(
-        final_answer="The winning answer."
-    )
-    mock_get_llm.return_value = mock_llm
+    mock_llm.invoke.return_value = AIMessage(content="The winning answer.")
+    mock_get_synthesis_llm.return_value = mock_llm
 
     state = {
         "problem": "Pick a slogan.",

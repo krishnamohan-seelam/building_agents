@@ -206,6 +206,13 @@ Loop edge: `pruner → generator` (same loop shape as query_decomposer's
 `research → decomposer`). Start without the v2 backtracking branch — plain beam
 search first, add dead-end recovery once the basic loop works.
 
+> **Scope note (post-implementation):** the actual build shipped `best_pruned_sibling`
+> and the reactivation branch directly in v1 (`pruner_node`), not deferred to v2 as
+> planned below. It matches the "scope: reach back through *every* pruned thought
+> ever" choice described in the two design choices below — the more conservative
+> `len(t.path) == state.depth` restriction was not applied. Noted here rather than
+> fixed, since the fully-specified behavior below is what's running.
+
 `best_pruned_sibling` (v2 only — not needed for the v1 build order in §10):
 
 ```
@@ -251,6 +258,10 @@ function synthesizer_node(state):
 Works whether we got here via `SOLVED_THRESHOLD`, `MAX_DEPTH`, or `MAX_TOTAL_THOUGHTS`
 — always just "take the best thought seen and write it up," same graceful-degradation
 spirit as query_decomposer's safety-limit synthesis path.
+
+> **Scope note (post-implementation):** the shipped `synthesizer_node` no longer
+> matches the pseudocode above — see §12 for what actually changed and why
+> (provider swap to Gemini, dropped `with_structured_output`, raw-content extraction).
 
 ## 5. Graph wiring (`build_graph`)
 
@@ -419,7 +430,8 @@ def build_synthesizer_messages(problem: str, winning_path: str):
    round over round.
 5. `synthesizer_node` + full graph wiring — end-to-end run.
 6. Add logging parity with query_decomposer once the happy path works.
-7. (v2, optional) real backtracking: if a round's best score is worse than the
+7. (v2, optional — **shipped in v1 instead**, see scope note in §4.4) real
+   backtracking: if a round's best score is worse than the
    previous round's, re-activate a previously pruned sibling instead of only the
    current frontier.
 
@@ -430,3 +442,46 @@ Pick something where branching visibly matters and is easy to hand-score, e.g.
 puzzle with multiple candidate approaches — avoid open-ended research questions
 (that's query_decomposer's job) so the ToT-specific mechanics (generate → score →
 prune → backtrack) stay the focus.
+
+## 12. Post-implementation changes (diagnosed `openai.APITimeoutError`, 2026-11-14)
+
+Three unrelated issues were chased down and fixed in the same session; noted here
+since they diverge from §3/§4.5 above and from how `memory.py` was originally meant
+to behave.
+
+1. **Conversation history was unbounded.** `memory.py`'s `format_conversation_history`
+   already capped the number of messages (`MAX_HISTORY_MESSAGES = 12`) but not each
+   message's *length* — a single long prior turn (e.g. a multi-KB synthesized answer)
+   got folded verbatim into every node's prompt on every later turn in the same
+   `thread_id`. Added `MAX_HISTORY_CHARS_PER_MESSAGE = 500`: each message is now
+   truncated with a `... [truncated]` marker before joining. This turned out not to be
+   the actual cause of the timeout (see #3), but it's a real bound that was missing.
+2. **`synthesizer_node` dropped `with_structured_output(SynthesisOutput)`.** §3/§4.5
+   call for binding `SynthesisOutput` and reading `result.final_answer`. In practice,
+   forcing a long free-form essay answer through tool-calling/JSON-schema structured
+   output added suspicion of being the slow part (it wasn't, see #3, but it's also not
+   buying anything — the schema is a single string field with no real validation), so
+   `synthesizer_node` now does a plain `llm.invoke(messages)` and extracts text itself
+   via a new `_extract_text()` helper. `SynthesisOutput`/`ThoughtCandidate`-style
+   structured output is still used as planned for `generator_node`/`evaluator_node`.
+3. **Actual root cause of the timeout: TLS cert verification, not the app.** This
+   machine's network path to `api.openai.com` (and `generativelanguage.googleapis.com`)
+   goes through something that intercepts TLS (corporate proxy / antivirus HTTPS
+   scanning). Windows' own trust store trusts the interceptor's root CA; Python's
+   bundled `certifi` (used by `httpx`/`openai`/`google-genai` by default) does not —
+   so calls intermittently failed `CERTIFICATE_VERIFY_FAILED` or hung until
+   `LLM_TIMEOUT_SECONDS` (×`LLM_MAX_RETRIES`) and surfaced as `openai.APITimeoutError`.
+   Fixed by calling `truststore.inject_into_ssl()` at the top of `agent.py`, before any
+   `ChatOpenAI`/`ChatGoogleGenerativeAI` client is constructed, so TLS verification
+   uses the OS trust store instead of `certifi`. `truststore` was already in `.venv`.
+   This almost certainly affects other examples too (`query_decomposer`'s log shows the
+   same `CERTIFICATE_VERIFY_FAILED` error on 2026-11-11) but the fix was scoped to
+   `treeofthought` only, per instruction at the time.
+4. **Synthesizer LLM swapped from OpenAI to Gemini.** `get_llm()` (OpenAI-only, §4
+   pseudocode) is unchanged and still used by `generator_node`/`evaluator_node`. Added
+   a separate `get_synthesis_llm()` using `ChatGoogleGenerativeAI` + the existing
+   `GOOGLE_API_KEY`. `SYNTHESIS_MODEL` default is now `gemini-3.1-pro-preview` (first
+   tried `gemini-2.5-pro`, but Google's API rejects it as deprecated and names
+   `gemini-3.1-pro-preview` as the replacement). This model returns `response.content`
+   as a list of content blocks (carrying a reasoning signature) rather than a plain
+   string, which is why `_extract_text()` from #2 handles both shapes.

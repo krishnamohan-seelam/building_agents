@@ -127,3 +127,6 @@ dist-ssr
 DOCS/
 .agents
 .langgraph_api
+
+DBS/
+*.sqlite.*
